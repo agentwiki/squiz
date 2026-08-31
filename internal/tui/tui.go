@@ -38,14 +38,15 @@ var confLabels = map[engine.Confidence]string{
 type tickMsg time.Time
 
 type model struct {
-	x        *ipc.Exchange
-	screen   *ipc.Screen
-	answered string // qid already answered, waiting for the next screen
-	input    textarea.Model
-	confIdx  int
-	status   string
-	errText  string
-	width    int
+	x             *ipc.Exchange
+	screen        *ipc.Screen
+	answered      string // qid already answered, waiting for the next screen
+	answeredTicks int    // ticks the answered qid kept reappearing
+	input         textarea.Model
+	confIdx       int
+	status        string
+	errText       string
+	width         int
 }
 
 func newModel(x *ipc.Exchange) model {
@@ -86,12 +87,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tick()
 		}
 		if m.screen == nil || m.screen.Question.QID != sc.Question.QID {
-			if sc.Question.QID != m.answered {
+			show, reshow := sc.Question.QID != m.answered, false
+			if !show {
+				// the answered question is still posted: normally the CLI
+				// clears it right after approval. If it lingers (~3s), the
+				// response was rejected or lost — re-show so the user can
+				// answer again instead of deadlocking.
+				m.answeredTicks++
+				if m.answeredTicks > 8 {
+					show, reshow = true, true
+				}
+			}
+			if show {
 				m.screen = sc
 				m.answered = ""
+				m.answeredTicks = 0
 				m.input.Reset()
 				m.errText = ""
-				m.status = ""
+				if reshow {
+					m.status = "응답이 접수되지 않아 같은 질문을 다시 표시합니다."
+				} else {
+					m.status = ""
+				}
 			}
 		}
 		return m, tick()
@@ -212,6 +229,9 @@ func (m model) View() string {
 	if len(q.Options) == 0 {
 		b.WriteString("확신도: " + confStyle.Render(confLabels[confidences[m.confIdx]]) +
 			helpStyle.Render("  (Tab으로 변경 — '모르겠음'도 정상 경로입니다)") + "\n")
+	}
+	if m.status != "" {
+		b.WriteString(noticeStyle.Render(m.status) + "\n")
 	}
 	if m.errText != "" {
 		b.WriteString(errStyle.Render(m.errText) + "\n")

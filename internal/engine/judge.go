@@ -4,6 +4,9 @@ package engine
 // This is the core of reduce(state, event): transitions §1, §2, §5.
 func (s *Session) Judge(j Judgment) error {
 	s.ensureRuntime()
+	if len(s.PendingRestore) > 0 {
+		return notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
+	}
 	if s.LastAnswer == nil || s.lastQuestion == nil {
 		return notAllowed("no answer awaiting judgment")
 	}
@@ -43,9 +46,6 @@ func (s *Session) Judge(j Judgment) error {
 	rec := JudgmentRecord{
 		Judgment: j, ConceptID: c.ID, Kind: q.Kind, Stage: q.Stage,
 		Scaffolded: s.Episode != nil && s.Episode.Open && s.Episode.Scaffolded && q.Kind != KindRetry,
-	}
-	if s.newCasePending {
-		rec.Kind = q.Kind // boundary/transfer new case
 	}
 	s.Judgments = append(s.Judgments, rec)
 	s.LastAnswer = nil
@@ -141,8 +141,7 @@ func (s *Session) judgeLadder(c *Concept, q *Question, j Judgment) error {
 		st = ladderKinds[q.Kind]
 	}
 	si := c.stage(st)
-	newCase := s.newCasePending
-	s.newCasePending = false
+	newCase := q.NewCase
 
 	if newCase {
 		c.NewCaseAttempted = true // A4/P1 gate: attempted, whatever the outcome
@@ -278,9 +277,6 @@ func (s *Session) afterStagePass(c *Concept, st Stage) {
 		if idx >= 0 && idx < len(concepts)-1 {
 			s.CurrentConcept = concepts[idx+1].ID
 		}
-	}
-	if s.AwaitNewCase || s.ExplanationOpen {
-		return
 	}
 }
 

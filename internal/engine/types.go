@@ -271,7 +271,8 @@ type Question struct {
 	Stage        Stage        `json:"stage,omitempty"`
 	Text         string       `json:"text"`
 	HintLevel    int          `json:"hint_level,omitempty"`
-	Options      []string     `json:"options,omitempty"` // structured-choice questions
+	NewCase      bool         `json:"new_case,omitempty"` // post-explanation new case (P1/A4)
+	Options      []string     `json:"options,omitempty"`  // structured-choice questions
 	ClarifyCount int          `json:"clarify_count,omitempty"`
 	EvidenceRef  string       `json:"evidence_ref,omitempty"` // consequence: verified evidence (I1)
 }
@@ -464,11 +465,10 @@ type Session struct {
 	explainRequested bool
 	retractDue       string
 	objectionPending *Question
-	lastChoice       *Answer
 	lastQuestion     *Question
 	reexplainText    string
 	summaryClose     bool
-	newCasePending   bool
+	finalReport      *Report
 }
 
 func (s *Session) Concept(id string) *Concept {

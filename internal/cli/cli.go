@@ -287,19 +287,23 @@ func cmdAsk(args []string) (int, error) {
 	if err != nil {
 		return 1, err
 	}
+	if err := x.PublishQuestion(screenFor(s, q, *notice)); err != nil {
+		return 1, err
+	}
+	printJSON(map[string]any{"qid": q.QID, "kind": q.Kind, "burden": s.BurdenCount})
+	return 0, nil
+}
+
+func screenFor(s *engine.Session, q *engine.Question, notice string) ipc.Screen {
 	sc := ipc.Screen{
-		Question: q, Notice: *notice,
+		Question: q, Notice: notice,
 		JudgedCount: s.JudgedCount, BurdenCount: s.BurdenCount,
 	}
 	if c := s.Concept(q.ConceptID); c != nil {
 		sc.ConceptName = c.Name
 		sc.Stage = q.Stage
 	}
-	if err := x.PublishQuestion(sc); err != nil {
-		return 1, err
-	}
-	printJSON(map[string]any{"qid": q.QID, "kind": q.Kind, "burden": s.BurdenCount})
-	return 0, nil
+	return sc
 }
 
 // exit codes per squiz-core.md §3
@@ -337,6 +341,11 @@ func cmdWait(args []string) (int, error) {
 	if err != nil {
 		return 5, err
 	}
+	// heal a stale question.json (crash between commit and clear) without
+	// clobbering a response the user may already have posted
+	if err := x.RefreshQuestion(screenFor(s, s.Pending, "")); err != nil {
+		return 5, err
+	}
 	a, err := x.Wait(*timeout)
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
@@ -345,9 +354,13 @@ func cmdWait(args []string) (int, error) {
 		return 5, err
 	}
 	if err := st.Commit(s, engine.EvAnswer, *a); err != nil {
-		// invalid response (qid mismatch etc.): drop it, keep waiting state
+		// invalid response (stale qid, malformed): drop it so the next wait
+		// does not spin on it; the question stays pending for a re-answer
+		_ = x.DropResponse()
 		return 5, err
 	}
+	// consume only after the engine approved the response (I4)
+	_ = x.DropResponse()
 	_ = x.ClearQuestion()
 	printJSON(map[string]any{
 		"qid": a.QID, "action": a.Action, "text": a.Text,
@@ -634,27 +647,9 @@ func cmdClose(args []string) (int, error) {
 	if err := st.Commit(s, engine.EvClose, struct{}{}); err != nil {
 		return 1, err
 	}
-	// recompute the report from the closed session for output
-	rep := buildReport(s)
-	printJSON(rep)
+	// the engine builds the §4.5 report (learner phrasing, blind-spot note)
+	printJSON(s.FinalReport())
 	return 0, nil
-}
-
-func buildReport(s *engine.Session) map[string]any {
-	concepts := []map[string]any{}
-	for _, c := range s.Concepts {
-		if c.Provisional {
-			continue
-		}
-		concepts = append(concepts, map[string]any{
-			"id": c.ID, "name": c.Name, "outcome": c.Outcome,
-		})
-	}
-	return map[string]any{
-		"session": s.ID, "judged": s.JudgedCount, "burden": s.BurdenCount,
-		"concepts":       concepts,
-		"recheck_advice": "다른 날 짧은 재확인 권장 (P2)",
-	}
 }
 
 func cmdStatus(args []string) (int, error) {

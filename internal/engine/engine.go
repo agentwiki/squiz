@@ -223,7 +223,8 @@ func (s *Session) Ask(p AskParams) (*Question, error) {
 	q := &Question{
 		QID: fmt.Sprintf("q%d", s.NextQID), Kind: p.Kind,
 		ConceptID: p.ConceptID, Stage: p.Stage, Text: p.Text,
-		HintLevel: p.HintLevel, Options: p.Options, EvidenceRef: p.EvidenceRef,
+		HintLevel: p.HintLevel, NewCase: p.NewCase,
+		Options: p.Options, EvidenceRef: p.EvidenceRef,
 	}
 	s.NextQID++
 	s.Pending = q
@@ -322,9 +323,10 @@ func (s *Session) validateAskKind(p *AskParams) error {
 			return notAllowed("episode open for %s/%s: close it before new ladder questions", ep.ConceptID, ep.Stage)
 		}
 		st := ladderKinds[k]
-		if p.Stage == "" {
-			p.Stage = st
+		if p.Stage != "" && p.Stage != st {
+			return notAllowed("--stage %s conflicts with --kind %s", p.Stage, k)
 		}
+		p.Stage = st
 		if st == StageTransfer && !c.TransferUnlocked && !(s.AwaitNewCase && p.NewCase) {
 			return notAllowed("transfer for %s is deferred until the next concept's boundary (D35)", c.ID)
 		}
@@ -446,7 +448,6 @@ func (s *Session) noteAskSideEffects(p *AskParams) {
 	case KindBoundary, KindTransfer:
 		if s.AwaitNewCase && p.NewCase {
 			s.AwaitNewCase = false
-			s.newCasePending = true
 		}
 	case KindExplore:
 		if c := s.Concept(p.ConceptID); c != nil {
@@ -577,7 +578,6 @@ func (s *Session) AnswerQuestion(a Answer) (int, error) {
 			s.handleLimitChoice(a.Choice, q)
 		}
 		s.LastAnswer = nil
-		s.lastChoice = &a
 		s.lastQuestion = q
 		return 0, nil
 	case AnswerText, "":
@@ -615,8 +615,6 @@ func (s *Session) AnswerQuestion(a Answer) (int, error) {
 		return 5, notAllowed("unknown answer action %q", a.Action)
 	}
 }
-
-func originQID(q *Question) string { return q.QID }
 
 func (s *Session) handleLimitChoice(choice int, q *Question) {
 	s.LimitChoicePending = false
@@ -657,11 +655,20 @@ func (s *Session) recordDiscard(q *Question, quality QuestionQuality) {
 	if c != nil {
 		c.Incidents = append(c.Incidents, Incident{Type: "question_discarded", Ref: q.QID})
 	}
+	if q.NewCase {
+		// the mandatory post-explanation new case died without judgment:
+		// re-arm the P1 gate so the next attempt is still required (A4)
+		s.AwaitNewCase = true
+	}
 	// burden was already counted at ask (P8); judged is untouched (I7)
 }
 
 func (s *Session) deferConcept(c *Concept) {
 	c.Deferred = true
+	// the explanation chain, if any, belonged to this concept's flow
+	s.AwaitNewCase = false
+	s.AwaitOwnWords = false
+	s.ExplanationOpen = false
 	if s.Episode != nil && s.Episode.Open && s.Episode.ConceptID == c.ID {
 		s.Episode.Open = false
 	}

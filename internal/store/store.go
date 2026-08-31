@@ -5,6 +5,8 @@ package store
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,7 +58,12 @@ func (st *Store) ActiveID() (string, error) {
 
 // Create initializes a new session directory and makes it active.
 func (st *Store) Create(source engine.Source, role engine.Role) (*engine.Session, error) {
-	id := time.Now().UTC().Format("20060102-150405")
+	// a random suffix keeps two inits in the same second from colliding
+	var rnd [3]byte
+	if _, err := rand.Read(rnd[:]); err != nil {
+		return nil, err
+	}
+	id := time.Now().UTC().Format("20060102-150405") + "-" + hex.EncodeToString(rnd[:])
 	dir := st.sessionDir(id)
 	if _, err := os.Stat(dir); err == nil {
 		return nil, fmt.Errorf("session %s already exists", id)

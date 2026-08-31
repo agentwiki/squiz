@@ -11,6 +11,9 @@ const (
 )
 
 func (s *Session) Feedback(kind FeedbackKind, conceptID, text string) error {
+	if len(s.PendingRestore) > 0 {
+		return notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
+	}
 	if text == "" {
 		return notAllowed("feedback requires content (P6 is about saying what was confirmed)")
 	}
@@ -45,6 +48,9 @@ func (s *Session) Feedback(kind FeedbackKind, conceptID, text string) error {
 // EpisodeClose ends the branch episode. Cause defaults to undetermined
 // (P0-6); user_misconception requires the full checklist (P3).
 func (s *Session) EpisodeClose(cause Cause, checklist *MisconceptionChecklist) error {
+	if len(s.PendingRestore) > 0 {
+		return notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
+	}
 	ep := s.Episode
 	if ep == nil || !ep.Open {
 		return notAllowed("no open episode")

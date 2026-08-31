@@ -79,8 +79,17 @@ func (x *Exchange) PublishResponse(a engine.Answer) error {
 	return atomicWrite(x.rPath(), a)
 }
 
-// TakeResponse consumes a response if present (nil if none yet).
-func (x *Exchange) TakeResponse() (*engine.Answer, error) {
+// RefreshQuestion republishes the question WITHOUT clearing any response
+// already posted by the TUI (used by `squiz wait` to heal a stale
+// question.json after a crash between commit and clear).
+func (x *Exchange) RefreshQuestion(sc Screen) error {
+	return atomicWrite(x.qPath(), sc)
+}
+
+// PeekResponse reads a response without consuming it (nil if none yet).
+// The caller consumes it with DropResponse only after the engine approved
+// it (squiz-core.md §2: approval before consumption).
+func (x *Exchange) PeekResponse() (*engine.Answer, error) {
 	b, err := os.ReadFile(x.rPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -92,20 +101,27 @@ func (x *Exchange) TakeResponse() (*engine.Answer, error) {
 	if err := json.Unmarshal(b, &a); err != nil {
 		return nil, err
 	}
-	if err := os.Remove(x.rPath()); err != nil {
-		return nil, err
-	}
 	return &a, nil
 }
 
-// Wait polls for a response until timeout (0 = wait forever).
+// DropResponse removes the posted response file.
+func (x *Exchange) DropResponse() error {
+	err := os.Remove(x.rPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+// Wait polls for a response until timeout (0 = wait forever). The response
+// is NOT consumed; see PeekResponse.
 func (x *Exchange) Wait(timeout time.Duration) (*engine.Answer, error) {
 	deadline := time.Time{}
 	if timeout > 0 {
 		deadline = time.Now().Add(timeout)
 	}
 	for {
-		a, err := x.TakeResponse()
+		a, err := x.PeekResponse()
 		if err != nil {
 			return nil, err
 		}

@@ -116,6 +116,9 @@ func (s *Session) Finalize(conceptID string) error {
 
 // SkipConcept is the CLI-side skip (exit 8 does the same via the TUI).
 func (s *Session) SkipConcept(conceptID string) error {
+	if len(s.PendingRestore) > 0 {
+		return notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
+	}
 	c := s.Concept(conceptID)
 	if c == nil {
 		return notAllowed("unknown concept %q", conceptID)
@@ -175,6 +178,9 @@ func (s *Session) Close() (*Report, error) {
 	if s.Phase == PhaseDone {
 		return nil, notAllowed("already done")
 	}
+	if len(s.PendingRestore) > 0 {
+		return nil, notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
+	}
 	for _, c := range s.nonProvisionalConcepts() {
 		if !c.Finalized && !c.Deferred {
 			if !s.summaryClose && !s.Aborted {
@@ -217,5 +223,9 @@ func (s *Session) Close() (*Report, error) {
 			ID: c.ID, Name: c.Name, Outcome: c.Outcome, Phrase: learnerPhrase(c.Outcome),
 		})
 	}
+	s.finalReport = rep
 	return rep, nil
 }
+
+// FinalReport returns the close report (design §4.5), available after Close.
+func (s *Session) FinalReport() *Report { return s.finalReport }

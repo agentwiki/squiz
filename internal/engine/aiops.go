@@ -7,6 +7,12 @@ func (s *Session) Retract(conceptID, kind, ref string) error {
 	if c == nil {
 		return notAllowed("unknown concept %q", conceptID)
 	}
+	if len(s.PendingRestore) > 0 {
+		return notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
+	}
+	if s.retractDue != "" && s.retractDue != c.ID {
+		return notAllowed("recheck refuted the claim for %s: retract that one first", s.retractDue)
+	}
 	switch kind {
 	case "claim", "":
 		c.Claim.Version++
@@ -22,19 +28,27 @@ func (s *Session) Retract(conceptID, kind, ref string) error {
 		return notAllowed("retract kind must be claim or evidence")
 	}
 	s.taintDependents(c, kind, ref)
-	s.retractDue = ""
+	// only clear obligations that pointed at THIS concept
+	if s.retractDue == c.ID {
+		s.retractDue = ""
+	}
+	if s.RecheckConcept == c.ID {
+		s.NeedRecheck = false
+		s.RecheckConcept = ""
+	}
 	if inv := s.openInvestigation(); inv != nil && inv.ConceptID == c.ID {
 		inv.Open = false
 		inv.Resolution = "retracted"
 	}
-	s.NeedRecheck = false
 	return nil
 }
 
 func (s *Session) taintDependents(c *Concept, kind, ref string) {
 	for i := range s.Judgments {
 		j := &s.Judgments[i]
-		if j.ConceptID != c.ID || j.Tainted || j.Restored {
+		// Restored records are NOT exempt: a re-judgment made against a
+		// version that is later retracted must be tainted again (I5).
+		if j.ConceptID != c.ID || j.Tainted {
 			continue
 		}
 		hit := false
@@ -92,9 +106,9 @@ func (s *Session) Restore(j Judgment) error {
 	rec.ClaimVersion = c.Claim.Version
 	s.Judgments = append(s.Judgments, rec)
 	s.PendingRestore = append(s.PendingRestore[:idx], s.PendingRestore[idx+1:]...)
-	if len(s.PendingRestore) == 0 {
-		s.recomputeStages(c)
-	}
+	// recompute this judgment's concept immediately — the queue may span
+	// several concepts and each must be re-derived from its own restores
+	s.recomputeStages(c)
 	return nil
 }
 
