@@ -1,0 +1,42 @@
+version: 2
+
+project_name: squiz
+
+builds:
+  - main: ./cmd/squiz
+    binary: squiz
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+release:
+  footer: |
+    ## 설치
+
+    ```bash
+    go install github.com/agentwiki/squiz/cmd/squiz@{{ .Tag }}
+    ```
+
+    또는 위 아카이브에서 플랫폼별 바이너리를 내려받으세요.
