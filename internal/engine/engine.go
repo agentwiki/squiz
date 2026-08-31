@@ -73,16 +73,16 @@ func (s *Session) AddConcept(p ConceptParams, provisional bool) (*Concept, error
 		return nil, notAllowed("unknown claim_type %q", ct)
 	}
 	c := &Concept{
-		ID:     fmt.Sprintf("c%d", len(s.Concepts)+1),
-		Name:   p.Name,
-		Claim:  Claim{Text: p.ClaimText, Type: ct, Version: 1},
-		Verify: VerifyPending,
+		ID:                fmt.Sprintf("c%d", len(s.Concepts)+1),
+		Name:              p.Name,
+		Claim:             Claim{Text: p.ClaimText, Type: ct, Version: 1},
+		Verify:            VerifyPending,
 		TargetPerformance: p.TargetPerformance, Depth: p.Depth,
-		AcceptedAlternatives: p.AcceptedAlternatives,
-		Prerequisites:        p.Prerequisites,
+		AcceptedAlternatives:   p.AcceptedAlternatives,
+		Prerequisites:          p.Prerequisites,
 		ExpectedMisconceptions: p.ExpectedMisconceptions,
-		Stages:      map[Stage]*StageInfo{},
-		Provisional: provisional,
+		Stages:                 map[Stage]*StageInfo{},
+		Provisional:            provisional,
 	}
 	for _, st := range Ladder {
 		c.Stages[st] = &StageInfo{State: StagePending}
@@ -102,12 +102,12 @@ func (s *Session) nonProvisionalConcepts() []*Concept {
 }
 
 type VerifyParams struct {
-	ConceptID    string       `json:"concept_id"`
-	Status       VerifyStatus `json:"status"`
-	ExternalRefs []string     `json:"external_refs"`
-	Evidence     []Evidence   `json:"evidence"`
-	Recheck      bool         `json:"recheck"`
-	RecheckSupportsClaim bool `json:"recheck_supports_claim"`
+	ConceptID            string       `json:"concept_id"`
+	Status               VerifyStatus `json:"status"`
+	ExternalRefs         []string     `json:"external_refs"`
+	Evidence             []Evidence   `json:"evidence"`
+	Recheck              bool         `json:"recheck"`
+	RecheckSupportsClaim bool         `json:"recheck_supports_claim"`
 }
 
 // SetVerify records verification. With Recheck it is the I6 recheck of a

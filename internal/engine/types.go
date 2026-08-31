@@ -201,25 +201,25 @@ const (
 type Action string
 
 const (
-	ActConceptAdd     Action = "concept_add"
-	ActVerify         Action = "verify"
-	ActStart          Action = "start"
-	ActAsk            Action = "ask"
-	ActAnswer         Action = "answer"
-	ActJudge          Action = "judge"
-	ActFeedback       Action = "feedback"
-	ActEpisodeClose   Action = "episode_close"
-	ActExplanation    Action = "explanation_record"
-	ActRecheck        Action = "recheck"
-	ActRetract        Action = "retract"
-	ActRestore        Action = "restore"
-	ActDefect         Action = "defect"
-	ActFinding        Action = "finding"
-	ActInvestigation  Action = "investigation"
-	ActFinalize       Action = "finalize"
-	ActSkip           Action = "skip"
-	ActClose          Action = "close"
-	ActDiscard        Action = "discard_question"
+	ActConceptAdd    Action = "concept_add"
+	ActVerify        Action = "verify"
+	ActStart         Action = "start"
+	ActAsk           Action = "ask"
+	ActAnswer        Action = "answer"
+	ActJudge         Action = "judge"
+	ActFeedback      Action = "feedback"
+	ActEpisodeClose  Action = "episode_close"
+	ActExplanation   Action = "explanation_record"
+	ActRecheck       Action = "recheck"
+	ActRetract       Action = "retract"
+	ActRestore       Action = "restore"
+	ActDefect        Action = "defect"
+	ActFinding       Action = "finding"
+	ActInvestigation Action = "investigation"
+	ActFinalize      Action = "finalize"
+	ActSkip          Action = "skip"
+	ActClose         Action = "close"
+	ActDiscard       Action = "discard_question"
 )
 
 type Claim struct {
@@ -229,12 +229,12 @@ type Claim struct {
 }
 
 type Evidence struct {
-	ID       string `json:"id"`
-	Kind     string `json:"kind"` // execution | external_ref | thought_experiment
-	Text     string `json:"text"`
-	Excludes string `json:"excludes,omitempty"`
-	Version  int    `json:"version"`
-	Retracted bool  `json:"retracted,omitempty"`
+	ID        string `json:"id"`
+	Kind      string `json:"kind"` // execution | external_ref | thought_experiment
+	Text      string `json:"text"`
+	Excludes  string `json:"excludes,omitempty"`
+	Version   int    `json:"version"`
+	Retracted bool   `json:"retracted,omitempty"`
 }
 
 // Judgment is the AI's structured judgment of one answer (design §4.3).
@@ -265,15 +265,15 @@ type JudgmentRecord struct {
 }
 
 type Question struct {
-	QID       string       `json:"qid"`
-	Kind      QuestionKind `json:"kind"`
-	ConceptID string       `json:"concept_id,omitempty"`
-	Stage     Stage        `json:"stage,omitempty"`
-	Text      string       `json:"text"`
-	HintLevel int          `json:"hint_level,omitempty"`
-	Options   []string     `json:"options,omitempty"` // structured-choice questions
-	ClarifyCount int       `json:"clarify_count,omitempty"`
-	EvidenceRef  string    `json:"evidence_ref,omitempty"` // consequence: verified evidence (I1)
+	QID          string       `json:"qid"`
+	Kind         QuestionKind `json:"kind"`
+	ConceptID    string       `json:"concept_id,omitempty"`
+	Stage        Stage        `json:"stage,omitempty"`
+	Text         string       `json:"text"`
+	HintLevel    int          `json:"hint_level,omitempty"`
+	Options      []string     `json:"options,omitempty"` // structured-choice questions
+	ClarifyCount int          `json:"clarify_count,omitempty"`
+	EvidenceRef  string       `json:"evidence_ref,omitempty"` // consequence: verified evidence (I1)
 }
 
 // AnswerAction: what the user did with the pending question in the TUI.
@@ -305,9 +305,9 @@ type Incident struct {
 }
 
 type StageInfo struct {
-	State StageState      `json:"state"`
-	Path  AcquisitionPath `json:"path,omitempty"` // how pass was reached
-	Reasks int            `json:"reasks"`          // aligned-but-insufficient re-ask count (max 1)
+	State  StageState      `json:"state"`
+	Path   AcquisitionPath `json:"path,omitempty"` // how pass was reached
+	Reasks int             `json:"reasks"`         // aligned-but-insufficient re-ask count (max 1)
 }
 
 type Outcome struct {
@@ -324,28 +324,28 @@ type Outcome struct {
 }
 
 type Concept struct {
-	ID       string       `json:"id"`
-	Name     string       `json:"name"`
-	Claim    Claim        `json:"claim"`
-	Verify   VerifyStatus `json:"verify"`
-	ExternalRefs []string `json:"external_refs,omitempty"`
-	Evidence []Evidence   `json:"evidence,omitempty"`
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	Claim        Claim        `json:"claim"`
+	Verify       VerifyStatus `json:"verify"`
+	ExternalRefs []string     `json:"external_refs,omitempty"`
+	Evidence     []Evidence   `json:"evidence,omitempty"`
 
-	TargetPerformance    string   `json:"target_performance,omitempty"`
-	Depth                string   `json:"depth,omitempty"`
-	AcceptedAlternatives []string `json:"accepted_alternatives,omitempty"`
-	Prerequisites        []string `json:"prerequisites,omitempty"`
+	TargetPerformance      string   `json:"target_performance,omitempty"`
+	Depth                  string   `json:"depth,omitempty"`
+	AcceptedAlternatives   []string `json:"accepted_alternatives,omitempty"`
+	Prerequisites          []string `json:"prerequisites,omitempty"`
 	ExpectedMisconceptions []string `json:"expected_misconceptions,omitempty"`
 
 	Stages map[Stage]*StageInfo `json:"stages"`
 
-	MisconceptionEpisodes int      `json:"misconception_episodes"`
-	WhyReturns            int      `json:"why_returns"`
-	SupportEvents         []string `json:"support_events,omitempty"`
+	MisconceptionEpisodes int        `json:"misconception_episodes"`
+	WhyReturns            int        `json:"why_returns"`
+	SupportEvents         []string   `json:"support_events,omitempty"`
 	Incidents             []Incident `json:"incidents,omitempty"`
-	Vindicated            []string `json:"vindicated,omitempty"`
-	TaintContrib          bool     `json:"taint_contrib,omitempty"`
-	ExploreCount          int      `json:"explore_count,omitempty"`
+	Vindicated            []string   `json:"vindicated,omitempty"`
+	TaintContrib          bool       `json:"taint_contrib,omitempty"`
+	ExploreCount          int        `json:"explore_count,omitempty"`
 
 	ExplanationUsed  bool  `json:"explanation_used,omitempty"`
 	ExplanationStage Stage `json:"explanation_stage,omitempty"`
@@ -353,26 +353,26 @@ type Concept struct {
 	NewCaseDone      bool  `json:"new_case_done,omitempty"`      // post-explanation new case passed
 	NewCaseAttempted bool  `json:"new_case_attempted,omitempty"` // post-explanation new case tried (A4)
 
-	TransferUnlocked bool `json:"transfer_unlocked,omitempty"` // D35 gating
-	FeedbackDone     bool `json:"feedback_done,omitempty"`     // P6 concept feedback
-	ExploreFeedbackDone bool `json:"explore_feedback_done,omitempty"`
-	Finalized        bool `json:"finalized,omitempty"`
-	Deferred         bool `json:"deferred,omitempty"` // skipped
-	Paused           bool `json:"paused,omitempty"`   // prerequisite_gap downstream pause
-	Provisional      bool `json:"provisional,omitempty"` // A5 lightweight prerequisite registration
-	Outcome          *Outcome `json:"outcome,omitempty"`
-	AbortedMid       bool `json:"aborted_mid,omitempty"`
+	TransferUnlocked    bool     `json:"transfer_unlocked,omitempty"` // D35 gating
+	FeedbackDone        bool     `json:"feedback_done,omitempty"`     // P6 concept feedback
+	ExploreFeedbackDone bool     `json:"explore_feedback_done,omitempty"`
+	Finalized           bool     `json:"finalized,omitempty"`
+	Deferred            bool     `json:"deferred,omitempty"`    // skipped
+	Paused              bool     `json:"paused,omitempty"`      // prerequisite_gap downstream pause
+	Provisional         bool     `json:"provisional,omitempty"` // A5 lightweight prerequisite registration
+	Outcome             *Outcome `json:"outcome,omitempty"`
+	AbortedMid          bool     `json:"aborted_mid,omitempty"`
 }
 
 // Episode is one branch episode (divergence from the ladder until return).
 type Episode struct {
-	ConceptID     string       `json:"concept_id"`
-	Stage         Stage        `json:"stage"`
-	ScaffoldCount int          `json:"scaffold_count"` // narrow+hint questions, <=3
-	RetryCount    int          `json:"retry_count"`    // A2: <=2
-	Cause         Cause        `json:"cause"`
-	Open          bool         `json:"open"`
-	Scaffolded    bool         `json:"scaffolded"` // any scaffold used in this episode
+	ConceptID     string `json:"concept_id"`
+	Stage         Stage  `json:"stage"`
+	ScaffoldCount int    `json:"scaffold_count"` // narrow+hint questions, <=3
+	RetryCount    int    `json:"retry_count"`    // A2: <=2
+	Cause         Cause  `json:"cause"`
+	Open          bool   `json:"open"`
+	Scaffolded    bool   `json:"scaffolded"` // any scaffold used in this episode
 	// Await forces the P1 fading chain: after narrow aligned only recombine,
 	// after recombine aligned only retry, after hint aligned only retry.
 	Await        QuestionKind `json:"await,omitempty"`
@@ -380,22 +380,22 @@ type Episode struct {
 }
 
 type Investigation struct {
-	ID       string `json:"id"`
-	ConceptID string `json:"concept_id"`
-	Reason   string `json:"reason"`
-	Open     bool   `json:"open"`
+	ID         string `json:"id"`
+	ConceptID  string `json:"concept_id"`
+	Reason     string `json:"reason"`
+	Open       bool   `json:"open"`
 	Resolution string `json:"resolution,omitempty"` // supported | retracted | unresolved
 }
 
 // MisconceptionChecklist gates cause=user_misconception (P3).
 // Every field must be true.
 type MisconceptionChecklist struct {
-	QuestionValid       bool `json:"question_valid"`
-	ClaimEvidenceValid  bool `json:"claim_evidence_valid"`
+	QuestionValid         bool `json:"question_valid"`
+	ClaimEvidenceValid    bool `json:"claim_evidence_valid"`
 	EvidenceExcludesModel bool `json:"evidence_excludes_model"`
-	NotTerminology      bool `json:"not_terminology"`
-	NotPrerequisite     bool `json:"not_prerequisite"`
-	ModelClear          bool `json:"model_clear"`
+	NotTerminology        bool `json:"not_terminology"`
+	NotPrerequisite       bool `json:"not_prerequisite"`
+	ModelClear            bool `json:"model_clear"`
 }
 
 func (c MisconceptionChecklist) AllTrue() bool {
@@ -414,18 +414,18 @@ type Event struct {
 // Session is the full state. Serialized as state.json (a cache; the event
 // log wins on divergence).
 type Session struct {
-	ID      string  `json:"id"`
-	Source  Source  `json:"source"`
-	Role    Role    `json:"role"`
-	Phase   Phase   `json:"phase"`
+	ID       string     `json:"id"`
+	Source   Source     `json:"source"`
+	Role     Role       `json:"role"`
+	Phase    Phase      `json:"phase"`
 	Concepts []*Concept `json:"concepts"`
 
-	CurrentConcept string `json:"current_concept,omitempty"`
+	CurrentConcept string    `json:"current_concept,omitempty"`
 	Pending        *Question `json:"pending,omitempty"`
 	LastAnswer     *Answer   `json:"last_answer,omitempty"` // awaiting judge
 	OpenBaseline   string    `json:"open_baseline,omitempty"`
 
-	Episode        *Episode        `json:"episode,omitempty"`
+	Episode        *Episode         `json:"episode,omitempty"`
 	Judgments      []JudgmentRecord `json:"judgments"`
 	Investigations []Investigation  `json:"investigations,omitempty"`
 
@@ -434,21 +434,21 @@ type Session struct {
 
 	PendingRestore []string `json:"pending_restore,omitempty"` // qids needing re-judgment (I2)
 
-	NeedRecheck         bool   `json:"need_recheck,omitempty"`          // I6
-	RecheckConcept      string `json:"recheck_concept,omitempty"`
-	NeedRecheckFeedback bool   `json:"need_recheck_feedback,omitempty"` // P6
+	NeedRecheck         bool         `json:"need_recheck,omitempty"` // I6
+	RecheckConcept      string       `json:"recheck_concept,omitempty"`
+	NeedRecheckFeedback bool         `json:"need_recheck_feedback,omitempty"` // P6
 	PostRecheckClarity  ModelClarity `json:"post_recheck_clarity,omitempty"`
 
-	ExplanationOpen   bool   `json:"explanation_open,omitempty"`
-	AwaitOwnWords     bool   `json:"await_own_words,omitempty"`
-	AwaitNewCase      bool   `json:"await_new_case,omitempty"`
-	OwnWordsRepeatUsed bool  `json:"own_words_repeat_used,omitempty"`
+	ExplanationOpen    bool `json:"explanation_open,omitempty"`
+	AwaitOwnWords      bool `json:"await_own_words,omitempty"`
+	AwaitNewCase       bool `json:"await_new_case,omitempty"`
+	OwnWordsRepeatUsed bool `json:"own_words_repeat_used,omitempty"`
 
-	LimitChoicePending  bool `json:"limit_choice_pending,omitempty"` // P8 burden gate
-	LimitChoiceHandled  bool `json:"limit_choice_handled,omitempty"`
-	IntegrateCount      int  `json:"integrate_count,omitempty"`
-	ReexplainDone       bool `json:"reexplain_done,omitempty"`
-	Aborted             bool `json:"aborted,omitempty"`
+	LimitChoicePending bool `json:"limit_choice_pending,omitempty"` // P8 burden gate
+	LimitChoiceHandled bool `json:"limit_choice_handled,omitempty"`
+	IntegrateCount     int  `json:"integrate_count,omitempty"`
+	ReexplainDone      bool `json:"reexplain_done,omitempty"`
+	Aborted            bool `json:"aborted,omitempty"`
 
 	PrereqDepth int `json:"prereq_depth,omitempty"` // A5: recovery depth used (cap 1)
 

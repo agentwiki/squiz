@@ -129,15 +129,15 @@ func (s *Session) SkipConcept(conceptID string) error {
 
 // Report is the close output (design §4.5 required items).
 type Report struct {
-	SessionID     string           `json:"session_id"`
-	Source        Source           `json:"source"`
-	OpenBaseline  string           `json:"open_baseline"`
-	ReexplainText string           `json:"reexplain_text"`
-	Concepts      []ConceptReport  `json:"concepts"`
-	JudgedCount   int              `json:"judged_count"`
-	BurdenCount   int              `json:"burden_count"`
-	SharedBlindSpotNote string     `json:"shared_blind_spot_note"`
-	RecheckAdvice string           `json:"recheck_advice"`
+	SessionID           string          `json:"session_id"`
+	Source              Source          `json:"source"`
+	OpenBaseline        string          `json:"open_baseline"`
+	ReexplainText       string          `json:"reexplain_text"`
+	Concepts            []ConceptReport `json:"concepts"`
+	JudgedCount         int             `json:"judged_count"`
+	BurdenCount         int             `json:"burden_count"`
+	SharedBlindSpotNote string          `json:"shared_blind_spot_note"`
+	RecheckAdvice       string          `json:"recheck_advice"`
 }
 
 type ConceptReport struct {

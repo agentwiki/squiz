@@ -38,14 +38,14 @@ var confLabels = map[engine.Confidence]string{
 type tickMsg time.Time
 
 type model struct {
-	x         *ipc.Exchange
-	screen    *ipc.Screen
-	answered  string // qid already answered, waiting for the next screen
-	input     textarea.Model
-	confIdx   int
-	status    string
-	errText   string
-	width     int
+	x        *ipc.Exchange
+	screen   *ipc.Screen
+	answered string // qid already answered, waiting for the next screen
+	input    textarea.Model
+	confIdx  int
+	status   string
+	errText  string
+	width    int
 }
 
 func newModel(x *ipc.Exchange) model {

@@ -61,30 +61,30 @@ func Main(args []string) int {
 }
 
 var commands = map[string]func([]string) (int, error){
-	"init":               cmdInit,
-	"concept-add":        cmdConceptAdd,
-	"verify":             cmdVerify,
-	"start":              cmdStart,
-	"ask":                cmdAsk,
-	"wait":               cmdWait,
-	"ui":                 cmdUI,
-	"judge":              cmdJudge,
-	"feedback":           cmdFeedback,
-	"episode-close":      cmdEpisodeClose,
-	"explanation-record": cmdExplanation,
-	"retract":            cmdRetract,
-	"restore":            cmdRestore,
-	"defect":             cmdDefect,
-	"finding":            cmdFinding,
-	"investigation-open": cmdInvOpen,
+	"init":                cmdInit,
+	"concept-add":         cmdConceptAdd,
+	"verify":              cmdVerify,
+	"start":               cmdStart,
+	"ask":                 cmdAsk,
+	"wait":                cmdWait,
+	"ui":                  cmdUI,
+	"judge":               cmdJudge,
+	"feedback":            cmdFeedback,
+	"episode-close":       cmdEpisodeClose,
+	"explanation-record":  cmdExplanation,
+	"retract":             cmdRetract,
+	"restore":             cmdRestore,
+	"defect":              cmdDefect,
+	"finding":             cmdFinding,
+	"investigation-open":  cmdInvOpen,
 	"investigation-close": cmdInvClose,
-	"objection":          cmdObjection,
-	"finalize":           cmdFinalize,
-	"skip":               cmdSkip,
-	"close":              cmdClose,
-	"status":             cmdStatus,
-	"version":            cmdVersion,
-	"help":               func([]string) (int, error) { usage(); return 0, nil },
+	"objection":           cmdObjection,
+	"finalize":            cmdFinalize,
+	"skip":                cmdSkip,
+	"close":               cmdClose,
+	"status":              cmdStatus,
+	"version":             cmdVersion,
+	"help":                func([]string) (int, error) { usage(); return 0, nil },
 }
 
 func usage() {
@@ -652,7 +652,7 @@ func buildReport(s *engine.Session) map[string]any {
 	}
 	return map[string]any{
 		"session": s.ID, "judged": s.JudgedCount, "burden": s.BurdenCount,
-		"concepts": concepts,
+		"concepts":       concepts,
 		"recheck_advice": "다른 날 짧은 재확인 권장 (P2)",
 	}
 }
@@ -671,7 +671,7 @@ func cmdStatus(args []string) (int, error) {
 		concepts = append(concepts, map[string]any{
 			"id": c.ID, "name": c.Name, "verify": c.Verify, "stages": stages,
 			"finalized": c.Finalized, "deferred": c.Deferred,
-			"transfer_unlocked": c.TransferUnlocked,
+			"transfer_unlocked":      c.TransferUnlocked,
 			"misconception_episodes": c.MisconceptionEpisodes,
 		})
 	}
@@ -679,8 +679,8 @@ func cmdStatus(args []string) (int, error) {
 		"session": s.ID, "phase": s.Phase, "source": s.Source,
 		"judged_count": s.JudgedCount, "burden_count": s.BurdenCount,
 		"judged_warn_24": s.JudgedCount >= 24,
-		"concepts": concepts,
-		"allowed":  s.AllowedSummary(),
+		"concepts":       concepts,
+		"allowed":        s.AllowedSummary(),
 	}
 	if s.Pending != nil {
 		out["pending"] = s.Pending.QID
