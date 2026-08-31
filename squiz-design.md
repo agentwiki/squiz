@@ -4,7 +4,7 @@
 > 상태: **설계 v4.1, 구현 미착수**. 마지막 갱신: 2026-08-27.
 > v3 → v4: 교수법 리뷰 반영. scaffold 페이딩 강제, 단계별 rubric, 유지력 명칭 분리, cause 기본값 `undetermined`, consequence 조건을 model_clarity로, 피드백 시점 정의, 설명 요청을 지원 사건으로, 이중 카운트, defect 복권 범위 제한, integration 진입 조건, transfer 지연, 교수법 불변조건 P1~P8, 미결 두 건 확정. 전이표는 `squiz-transitions.md`.
 > v4 → v4.1: 교차 검증 수정. 오개념 3회 탈출에 skip 허용 통일(D38), integration 진입 조건의 "서로 다른 두 개념" 명시, 전이표 누락 행 보강(why S=none, 판정 24 경고). 결정 필요 항목은 `phase0a-decisions.md`로 분리.
-> **주의(자기완결성)**: I1~I8, 응답 승인 규칙, waiter exit 0/3/5, 저장 구조, §5.2 루프는 아직 v3 참조다. v3 없이 재개하는 세션은 `phase0a-decisions.md` A6을 먼저 처리할 것.
+> v4.1 확정분(0A, 2026-08-31, 사용자 승인): A1~A7 전부 확정(D39), 구현 언어 Go·TUI bubbletea·IPC 파일 기반·goreleaser 배포(D40). I1~I8·응답 승인·exit 코드·저장 구조는 **`squiz-core.md`(v3에서 재구성)**가 원천.
 > 재개 시 §12(다음 작업)부터. §14는 등급표.
 
 ---
@@ -138,7 +138,7 @@ verify 결과별: `supported` 전체 사다리+consequence / `contested`·`unver
 프레임: 내 것도 검토 대상 / 되물어도 됨 / 설명 요청·이의 제기·건너뛰기 가능 / **"첫 답은 판정하지 않고 난이도·용어 맞추는 데만 씁니다."** open 답변은 baseline만.
 
 ### 4.2 사다리와 지연 transfer
-개념 A: predict → why → boundary. 그 다음 개념 B로 이동. **A의 transfer는 B의 boundary 이후**에 묻는다(패턴 추종 방지). 마지막 개념의 transfer는 integration 직전. 개념이 하나뿐이면 reexplain 전.
+개념 A: predict → why → boundary. 그 다음 개념 B로 이동. **A의 transfer는 B의 boundary 이후**에 묻는다(패턴 추종 방지). 마지막 개념의 transfer는 integration 직전. 개념이 하나뿐이면 reexplain 직전 — 이때 시간 간격이 사실상 없으므로 **보고에 "지연 간격 없음" 한계를 명시**한다(A1, §3.2와 일관).
 
 predict 질문은 초기 조건·변화 변수·관찰 결과·범위를 포함해야 한다. 조건 빠진 질문은 `underspecified`.
 why 재질문은 "왜?" 반복이 아니라 형식을 바꾼다: 과정 순서 / 요소 제거 시 결과 / 중간 상태 / 두 설명 비교.
@@ -178,10 +178,11 @@ boundary 사례는 희귀 함정이 아니라 **적용 범위를 가르는 조�
 **scaffold 페이딩 (P1, CLI 강제)**
 - `narrow aligned` → **recombine 필수** → **unscaffolded retry**(같은 단계, 새 표현 또는 새 사례) → 그 결과만 stage final
 - `hint aligned` → **unscaffolded retry** 필수
-- `explanation` → `own_words` → **새 사례 boundary 또는 transfer** → finalize. own_words가 설명 반복이면 재질문이 아니라 형식을 바꾼 적용 문제
+- `explanation` → `own_words` → **새 사례 boundary 또는 transfer** → **사다리 재개**(A4): 남은 pending 단계를 계속 진행하고, explanation이 다룬 단계만 after_explanation 경로로 기록. 부담 상한(P8) 도달 시에만 즉시 finalize. own_words가 설명 반복이면 재질문이 아니라 형식을 바꾼 적용 문제
+- scaffold ≤3에 더해 **에피소드당 unscaffolded retry ≤2**(A2). 소진 시 allowed={explanation(escape), skip}
 - 힌트 등급(가벼운 순): 주의 단서 / 사실 하나 / 반례 관찰 일부 / 미니 예시. 사용자가 "작은 단서/예시/설명" 선택 가능. 기본은 2단계
 
-**에피소드 원인 (P0-6)**: 기본값 `undetermined`. `user_misconception` 확정 조건 전부 충족 시에만: 질문 valid / claim·evidence 유효 / evidence가 learner model을 실제 배제 / 용어 문제 아님 / 선행 개념 결손 아님 / 사용자 모델이 명료. 그 외 `question_defect | ai_error | terminology | weak_counterexample | prerequisite_gap`. `prerequisite_gap`이면 downstream 개념 일시 정지, 선행 개념 복구.
+**에피소드 원인 (P0-6)**: 기본값 `undetermined`. `user_misconception` 확정 조건 전부 충족 시에만: 질문 valid / claim·evidence 유효 / evidence가 learner model을 실제 배제 / 용어 문제 아님 / 선행 개념 결손 아님 / 사용자 모델이 명료. 그 외 `question_defect | ai_error | terminology | weak_counterexample | prerequisite_gap`. `prerequisite_gap`이면 downstream 개념 일시 정지, 선행 개념 복구 — 미등록 선행 개념은 간이 등록(claim만, verify는 실행 가능할 때만), 복구 질문은 **burden에만 계산**, 복구 깊이 상한 1(초과 시 downstream=deferred)(A5).
 
 **탈출**: 오개념 확정 에피소드 3회 → allowed는 **explanation(escape) 또는 skip**뿐 — 강제 설명이 아니라 사용자가 설명을 받을지 개념을 미룰지 선택한다(D38, 전이표 §3과 일치). **설명 요청(정상, 이유 선택)**: 즉시 explanation, `support_events`에 기록, end_reason은 완료 여부로. **이의 제기**: question_quality 재평가 또는 investigation. **건너뛰기**: deferred. **clarify**: 2회째는 재표현이 아니라 **양식 전환**(추상→사례, 코드→실행 추적, 긴 문장→변수 하나씩, 전문어→일상어). 3회면 discard.
 
@@ -204,7 +205,8 @@ investigation 트리거·처리는 v3와 동일하되 두 가지 수정:
 ### 4.6 관통 규칙
 - 한 화면 한 질문. 정답 사전 누설 금지. 부분 정답 보존은 **모든 단계**(P7).
 - **칭찬은 정답 자체보다 근거 제시, 불확실성 표현, 오류 탐지, 질문 제기, 모델 수정에.**
-- 이중 카운트(P8): 판정 문항 12~18 목표, 24 경고, 30 비상 상한(정정·안전 종료는 항상 허용). **부담 문항**(폐기·clarify·재질문 포함)이 판정 문항의 1.5배를 넘거나 30을 넘으면 "계속 / 요약 후 종료 / 설명 전환" 선택 제시.
+- 이중 카운트(P8): 판정 문항 12~18 목표, 24 경고, 30 비상 상한(정정·안전 종료는 항상 허용). **부담 문항**(폐기·clarify·재질문 포함)이 판정 문항의 1.5배를 넘거나 30을 넘으면 "계속 / 요약 후 종료 / 설명 전환" 선택 제시. 부담 문항의 정의는 **"응답을 요구하는 화면"**(A7) — 비질문 안내 화면은 세지 않는다.
+- TUI는 질문 헤더에 `[개념명 · 단계]`를 상시 표시하고, transfer 인터리빙 등 개념 전환 시 비질문 안내 한 줄을 보인다(burden 미계산)(A7).
 
 ---
 
@@ -222,7 +224,7 @@ v3와 동일. TUI 고정(사용자가 별도 터미널에서 `squiz ui`), IPC �
 - `explanation record` 후 allowed = `own_words`만; own_words 후 allowed = `boundary|transfer`(새 사례)만.
 - `status`에 `judged_count / burden_count` 둘 다.
 - `close`가 반환하는 보고에 §4.5 필수 항목.
-- 응답 형식·불변조건 I1~I8·저장 구조는 v3 그대로 (**A6: v4 문서로 인라인 예정**).
+- 응답 형식·불변조건 I1~I8·저장 구조는 **`squiz-core.md`**(v3에서 재구성, A6 완료).
 
 ### 6.4 추가: 교수법 불변조건 P1~P8 (강제 수단 명시)
 | # | 불변조건 | 강제 수단 |
@@ -269,6 +271,8 @@ v3와 동일. TUI 고정(사용자가 별도 터미널에서 `squiz ui`), IPC �
 | D36 | P1~P8을 강제 수단별로 구분(게이트 / guidance+0B) | CLI가 강제 못 하는 것을 정직하게 표기 |
 | D37 | contested contradicted+sure → 근거 조사, 오개념 카운트 금지; author divergent → investigation 우선 | v3 미결 확정 |
 | D38 | 오개념 3회 탈출 allowed = {explanation(escape), skip} | 사용자 자율성(설계 정체성: skip은 정상 경로). v4의 "explanation만"과 전이표 불일치를 skip 허용으로 통일 |
+| D39 | 0A A1~A7 확정: 단일 개념 transfer=reexplain 직전+한계 명시 / retry ≤2 / `fail` 폐기 / explanation 후 사다리 재개 / 선행 복구 간이 등록+burden만+깊이 1 / 핵심 규약 v4 재구성(`squiz-core.md`) / TUI 헤더 개념·단계 표시, 부담="응답 요구 화면" | 각 근거는 `phase0a-decisions.md`. P1·P5·P8과 일관 |
+| D40 | 구현: Go, bubbletea TUI, 파일 기반 IPC(원자적 rename), goreleaser+GitHub Releases 배포 | 사용자 지정(Go, GitHub 표준 배포). 파일 기반 IPC는 "파일이 원천"과 일치, 0C 스파이크 대체 |
 
 ---
 
@@ -310,7 +314,7 @@ finalize        demonstrated / guided / consistent / retention untested / rechec
 ---
 
 ## 11. 미결
-구현 언어 / TUI 프레임워크 / IPC / 타임아웃 / author 모드 동거 여부(0B 후) / `concept suggest` / 자동 발동 여부. **UI는 TUI 고정.** 전이 정의가 비어 있어 0A에서 확정해야 하는 항목은 **`phase0a-decisions.md`** 참조.
+~~구현 언어 / TUI 프레임워크 / IPC~~(D40으로 확정: Go / bubbletea / 파일 기반) / 타임아웃 기본값 / author 모드 동거 여부(0B 후) / `concept suggest` / 자동 발동 여부. **UI는 TUI 고정.** 0A 항목은 전부 확정됨(`phase0a-decisions.md`).
 
 ## 12. 다음 작업
 Phase 0 세 트랙 병렬(0A 명세·0B 교수법·0C 스파이크) → Phase 1 CLI+TUI 동시 → Phase 2(지연 확인, 재생, 질문 품질 자동, 접근성) → Phase 3(발동 품질). 0A에는 §8 D25~D38 반영한 전이표 확정과 P1~P8 게이트 정의, 그리고 **`phase0a-decisions.md`의 A1~A7 결정**이 포함된다. 0B는 §10 지표와 사용자 유형 3종으로.

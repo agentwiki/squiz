@@ -4,6 +4,7 @@
 > 표기: `A/S/M/Q/C` = alignment / support / model_clarity / question_quality / confidence. `I#` 인식론 불변조건, `P#` 교수법 불변조건.
 > v4 변경: scaffold 페이딩(P1) 강제, consequence 조건을 M으로, cause 기본값 undetermined, feedback 게이트, transfer 지연, integration 진입 조건, v3 미결 두 건 확정.
 > v4.1 변경: integrate 진입 조건에 "서로 다른 두 개념" 명시(D34), why `S=none` 행 추가, 판정 24 경고 행 추가(P8), §9 미결을 `phase0a-decisions.md`로 이관.
+> v4.1 확정분(0A A1~A7, D39): 단일 개념 transfer=reexplain 직전+보고 한계 명시(A1), 에피소드당 retry ≤2(A2), `fail` 상태 폐기(A3), explanation 후 사다리 재개(A4), 선행 복구=간이 등록+burden만+깊이 1(A5), TUI 헤더 개념·단계 상시 표시(A7). I1~I8·exit 코드·저장 구조는 `squiz-core.md`.
 
 ## 0. 세션 단계
 
@@ -23,7 +24,7 @@
 
 ## 1. 사다리 전이 (Q=valid)
 
-`stage_state ∈ {pending, scaffolded, pass, fail}`. **`pass`는 unscaffolded 시도로만 진입**(P1). scaffold 후 통과는 `scaffolded`이며 `retry` 통과 시 `pass`. `fail` 진입 조건은 **0A 미결(A3)** — 현재 어떤 전이도 fail을 설정하지 않는다.
+`stage_state ∈ {pending, scaffolded, pass}` (A3 확정: `fail` 폐기 — not_demonstrated는 "증거 미확보"이므로 개별 stage에도 부정적 종국 상태를 두지 않는다. 자원 소진된 stage는 pending으로 남고 finalize가 pass 개수로 계산). **`pass`는 unscaffolded 시도로만 진입**(P1). scaffold 후 통과는 `scaffolded`이며 `retry` 통과 시 `pass`.
 
 | stage | A | S / M | next allowed | 갱신 |
 |---|---|---|---|---|
@@ -51,7 +52,7 @@
 | transfer | aligned | 결과만 | transfer 재질문("어떤 요소가 어디에 대응?") 1회 | |
 | transfer | contradicted/partial/unknown | why_returns=0 | why 복귀(추상 구조 재확인) → 재transfer(새 사례) | session_consistency=inconsistent |
 | transfer | contradicted | why_returns=1 | narrow 1회 → retry → finalize | |
-| transfer | (원인이 선행 개념) | — | episode cause=prerequisite_gap → downstream 정지, 선행 복구 | 오개념 아님. 복구 메커니즘은 **0A 미결(A5)** |
+| transfer | (원인이 선행 개념) | — | episode cause=prerequisite_gap → downstream 정지, 선행 복구 | 오개념 아님. A5 확정: 미등록 선행 개념은 간이 등록(claim만), 복구 질문은 **burden에만 계산**, 복구 깊이 상한 1 — 초과 시 downstream=deferred |
 
 ## 2. 에피소드·scaffold 전이 (P1 핵심)
 
@@ -74,7 +75,7 @@
 | hint(1~4) | aligned | **retry 필수** |
 | hint | 실패 | 다음 등급 힌트(사용자 선택) or explanation open(escape) |
 | retry | aligned + rubric | stage=pass, path=guided, 에피소드 close |
-| retry | 실패 | 에피소드 cause 확정 시도 → 한도 내 재scaffold 또는 explanation. 상한은 **0A 미결(A2)** |
+| retry | 실패 | 에피소드 cause 확정 시도 → 한도 내 재scaffold 또는 explanation. A2 확정: **에피소드당 retry ≤2** — 소진 시 allowed={explanation open(escape), skip} |
 | explore | * | explore ≤2 → investigation unresolved → **explore feedback(합의/갈림/필요 근거)** → open |
 
 **에피소드 close**: `cause` 기본 `undetermined`. `user_misconception`은 체크리스트(질문 valid / claim·evidence 유효 / evidence가 모델 배제 / 용어 아님 / 선행 아님 / 모델 명료) 전부 참일 때만. 그 외 `question_defect | ai_error | terminology | weak_counterexample | prerequisite_gap`. session_consistency 계산은 user_misconception만 센다.
@@ -89,7 +90,7 @@
 | own_words aligned(재구성) | allowed={boundary(새 사례) \| transfer(새 사례)}만 (P1) |
 | own_words = 설명 반복 | 형식 바꾼 적용 문제(재질문 아님) 1회 |
 | own_words 불충분 | 추가 설명 or skip |
-| 새 사례 통과 | finalize: path=after_explanation, recheck_recommended. 남은 미통과 단계의 처리(사다리 재개 vs 즉시 finalize)는 **0A 미결(A4)** |
+| 새 사례 통과 | A4 확정: **사다리 재개** — 남은 pending 단계를 계속 진행(explanation이 다룬 단계만 after_explanation 경로). 모든 개념 단계 소진 후 finalize: path=after_explanation, recheck_recommended. 단, 부담 상한(P8) 도달 시 즉시 finalize로 강등 |
 | 새 사례 실패 | learning_outcome=partial |
 | exit 8 skip | deferred |
 | exit 7 이의 | question discard or investigation. 판정 없음 |
@@ -159,4 +160,4 @@ v3 §6 동일. 추가: 힌트 등급 선택·"계속/요약 종료/설명 전환
 - [x] integration 진입 (§0) — v4.1: "서로 다른 두 개념" 명시
 - [x] why aligned S=none (§1, v4.1)
 - [x] judged 24 경고 (§0, v4.1)
-- [ ] **미결 A1~A7은 `phase0a-decisions.md`로 이관** — fail 진입(A3), explanation 후 사다리 재개(A4), 선행 복구 메커니즘(A5), retry 상한(A2), 개념 1개 transfer 지연 대체(A1), v3 정의 인라인(A6), transfer 인터리빙 TUI(A7)
+- [x] **A1~A7 전부 확정** (`phase0a-decisions.md` 참조, 2026-08-31) — fail 폐기(A3, §1), 사다리 재개(A4, §3), 선행 복구(A5, §1), retry ≤2(A2, §2), 개념 1개는 reexplain 직전 transfer + 보고 한계 명시(A1, 설계 §4.2), 핵심 규약 재구성(A6, `squiz-core.md`), TUI 헤더 표시(A7, 설계 §4.6)
