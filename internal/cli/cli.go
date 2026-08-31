@@ -237,7 +237,18 @@ func cmdVerify(args []string) (int, error) {
 	if err := st.Commit(s, engine.EvVerify, p); err != nil {
 		return 1, err
 	}
-	printJSON(map[string]any{"concept": p.ConceptID, "allowed": s.AllowedSummary()})
+	out := map[string]any{"concept": p.ConceptID, "allowed": s.AllowedSummary()}
+	if c := s.Concept(p.ConceptID); c != nil {
+		// the agent needs evidence ids for `ask --kind consequence --evidence` (I1)
+		evs := []map[string]string{}
+		for _, e := range c.Evidence {
+			if !e.Retracted {
+				evs = append(evs, map[string]string{"id": e.ID, "kind": e.Kind, "excludes": e.Excludes})
+			}
+		}
+		out["evidence"] = evs
+	}
+	printJSON(out)
 	return 0, nil
 }
 
@@ -663,11 +674,18 @@ func cmdStatus(args []string) (int, error) {
 		for _, stg := range engine.Ladder {
 			stages[string(stg)] = string(c.Stages[stg].State)
 		}
+		evs := []map[string]string{}
+		for _, e := range c.Evidence {
+			if !e.Retracted {
+				evs = append(evs, map[string]string{"id": e.ID, "kind": e.Kind, "excludes": e.Excludes})
+			}
+		}
 		concepts = append(concepts, map[string]any{
 			"id": c.ID, "name": c.Name, "verify": c.Verify, "stages": stages,
 			"finalized": c.Finalized, "deferred": c.Deferred,
 			"transfer_unlocked":      c.TransferUnlocked,
 			"misconception_episodes": c.MisconceptionEpisodes,
+			"evidence":               evs,
 		})
 	}
 	out := map[string]any{
