@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -20,9 +21,52 @@ jobs:
         run: go build ./...
       - name: Vet
         run: go vet ./...
-      - name: Test
-        run: go test -race ./...
+      - name: Unit tests (race)
+        run: go test -race ./internal/...
+      - name: E2E user scenarios
+        run: go test ./e2e/ -v
+        env:
+          SQUIZ_E2E_REPORT: ${{ github.workspace }}/e2e-report.md
       - name: goreleaser config check
         uses: goreleaser/goreleaser-action@v6
         with:
           args: check
+      - name: Post E2E scenario report as PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          REPORT_PATH: ${{ github.workspace }}/e2e-report.md
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- squiz-e2e-report -->';
+            let body;
+            try {
+              body = fs.readFileSync(process.env.REPORT_PATH, 'utf8');
+            } catch (e) {
+              body = '## 🧪 squiz E2E 사용자 시나리오 검증\n\n⚠️ 리포트 파일이 생성되지 않았습니다 — E2E 단계가 시작 전에 실패했을 수 있습니다. 워크플로 로그를 확인하세요.';
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            body = `${marker}\n${body}\n---\n_커밋 ${context.sha.slice(0, 7)} · [워크플로 실행](${runUrl}) · \`go test ./e2e/\`로 로컬 재현 가능_\n`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const prev = comments.find(c => c.body && c.body.includes(marker));
+            if (prev) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: prev.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

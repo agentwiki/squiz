@@ -58,8 +58,11 @@ squiz status                      # 허용된 다음 동작(allowed) 확인
 ## 개발
 
 ```bash
-go test ./...     # 전이표 기반 생성형 테스트 + 불변조건 테스트 + 재생 결정성
+go test ./internal/...   # 전이표 기반 생성형 테스트 + 불변조건 테스트 + 재생 결정성
+go test ./e2e/ -v        # E2E 사용자 시나리오: 모의 AI 튜터 + 모의 사용자가 실제 바이너리를 구동
 go build ./cmd/squiz
 ```
+
+E2E 테스트는 시나리오별 자연어 전개와 캡처된 입출력 증거를 마크다운 리포트로 남기며, CI가 이를 PR 코멘트로 게시해 리뷰어가 수용 기준(Acceptance Criteria) 관점에서 검증할 수 있게 합니다.
 
 릴리스는 태그 푸시(`v*`)로 GitHub Actions + goreleaser가 수행합니다.
