@@ -6,11 +6,28 @@
 
 ## 설치
 
+### Claude Code 플러그인 (권장)
+
+이 저장소는 Claude Code 플러그인 마켓플레이스를 겸합니다. Claude Code 안에서:
+
+```
+/plugin marketplace add agentwiki/squiz
+/plugin install squiz@squiz
+```
+
+이후 "squiz로 이해 점검해줘"처럼 요청하면(또는 스킬이 자동 발동하면) 세션이 바로 시작됩니다. **`squiz` 바이너리가 없으면 GitHub 릴리스에서 플랫폼에 맞는 바이너리를 자동으로 설치**하며(`~/.local/bin`), 사용자는 안내에 따라 별도 터미널에서 `squiz ui`를 열어 답하면 됩니다.
+
+### 바이너리 직접 설치
+
 ```bash
 go install github.com/agentwiki/squiz/cmd/squiz@latest
 ```
 
-또는 [Releases](https://github.com/agentwiki/squiz/releases)에서 플랫폼별 바이너리를 내려받으세요.
+또는 [Releases](https://github.com/agentwiki/squiz/releases)에서 플랫폼별 바이너리를 내려받거나, 설치 스크립트를 사용하세요:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/agentwiki/squiz/main/plugins/squiz/scripts/install.sh | sh
+```
 
 ## 사용
 
@@ -53,7 +70,8 @@ squiz status                      # 허용된 다음 동작(allowed) 확인
 - [`squiz-transitions.md`](squiz-transitions.md) — 상태 전이표. 생성형 테스트의 원천
 - [`squiz-core.md`](squiz-core.md) — 불변조건 I1~I8 · waiter exit 코드 · 저장 구조 · 구현 결정
 - [`phase0a-decisions.md`](phase0a-decisions.md) — Phase 0A 결정 기록 (A1~A7, 전부 확정)
-- [`.claude/skills/squiz/SKILL.md`](.claude/skills/squiz/SKILL.md) — Claude Code 스킬 (튜터 프로토콜)
+- [`.claude/skills/squiz/SKILL.md`](.claude/skills/squiz/SKILL.md) — Claude Code 스킬 (튜터 프로토콜, 저장소 로컬용)
+- [`plugins/squiz/`](plugins/squiz/) — Claude Code 플러그인 (스킬 + 바이너리 자동 설치). 프로토콜 본문은 위 스킬과 동일하며 CI가 동기화를 검사
 
 ## 개발
 
