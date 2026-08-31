@@ -31,6 +31,20 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           args: check
+      - name: Plugin manifests are valid JSON
+        run: |
+          python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+          python3 -m json.tool plugins/squiz/.claude-plugin/plugin.json > /dev/null
+      - name: Install script syntax + lint
+        run: |
+          sh -n plugins/squiz/scripts/install.sh
+          shellcheck plugins/squiz/scripts/install.sh
+      - name: Plugin skill stays in sync with repo skill
+        run: |
+          diff \
+            <(sed -n '/^# squiz — /,$p' .claude/skills/squiz/SKILL.md) \
+            <(sed -n '/^# squiz — /,$p' plugins/squiz/skills/squiz/SKILL.md) \
+          || { echo '::error::plugins/squiz/skills/squiz/SKILL.md 의 프로토콜 본문(# squiz — 이하)이 .claude/skills/squiz/SKILL.md 와 다릅니다. 두 파일을 함께 수정하세요.'; exit 1; }
       - name: Post E2E scenario report as PR comment
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7

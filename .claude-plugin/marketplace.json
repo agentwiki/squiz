@@ -1,0 +1,18 @@
+{
+  "name": "squiz",
+  "owner": {
+    "name": "agentwiki",
+    "url": "https://github.com/agentwiki"
+  },
+  "metadata": {
+    "description": "소크라테스식 이해 점검 도구 squiz의 Claude Code 플러그인 마켓플레이스",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "squiz",
+      "source": "./plugins/squiz",
+      "description": "소크라테스식 이해 점검 세션. squiz 바이너리가 없으면 GitHub 릴리스에서 자동 설치하고, CLI가 강제하는 문답 프로토콜로 세션을 진행한다. 사용자는 별도 터미널의 TUI(squiz ui)에서 답한다."
+    }
+  ]
+}
