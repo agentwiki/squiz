@@ -1,5 +1,5 @@
 // Package store persists sessions: an append-only events.jsonl (source of
-// truth) plus a state.json snapshot cache (squiz-core.md §4). All writes go
+// truth) plus a state.json snapshot cache (docs/spec/core.md §4). All writes go
 // through temp-file + rename for atomicity.
 package store
 
@@ -192,7 +192,7 @@ func (st *Store) snapshot(s *engine.Session) error {
 	return AtomicWriteJSON(filepath.Join(st.sessionDir(s.ID), "state.json"), s)
 }
 
-// AtomicWriteJSON writes via temp file + rename (squiz-core.md §4).
+// AtomicWriteJSON writes via temp file + rename (docs/spec/core.md §4).
 func AtomicWriteJSON(path string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

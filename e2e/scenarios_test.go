@@ -7,11 +7,11 @@ import (
 )
 
 // S1 — 독립 수행 경로: 사용자가 도움 없이 사다리를 완주하면 demonstrated,
-// transfer는 다음 개념 뒤로 지연된다(D35).
+// transfer는 다음 개념 뒤로 지연된다.
 func TestS1SelfReachedWithDeferredTransfer(t *testing.T) {
 	r := newRun(t, "S1. 스스로 도달한 사용자 — 독립 수행과 transfer 지연",
 		"사용자가 단서 없이 예측→근거→경계를 통과하면 시스템은 어떤 개입도 하지 않는다",
-		"개념 A의 transfer(전이) 질문은 개념 B의 boundary가 끝나기 전에는 **시스템이 거부**한다 (패턴 추종 방지, D35)",
+		"개념 A의 transfer(전이) 질문은 개념 B의 boundary가 끝나기 전에는 **시스템이 거부**한다 (패턴 추종 방지)",
 		"네 단계를 모두 스스로 통과한 개념은 `demonstrated` + `self_reached`로 자동 판정되고, 보고 문구는 “이 세션에서 독립적으로 설명·적용함”이다",
 		"유지력(retention)은 항상 `untested` — 한 세션으로 장기 기억을 주장하지 않는다 (P2)")
 
@@ -71,7 +71,7 @@ func TestS1SelfReachedWithDeferredTransfer(t *testing.T) {
 		map[string]any{"action": "answer", "text": "키 매칭으로 부작용 1회 보장, 백오프로 재시도 분산", "confidence": "sure"})
 	r.wait(0)
 
-	out = r.ai("세션 종료 — §4.5 보고 생성", "", "close")
+	out = r.ai("세션 종료 — 보고 생성", "", "close")
 	r.evidence("close 보고(발췌)", extract(out, "concepts"))
 	var rep struct {
 		Concepts []struct {
@@ -82,10 +82,10 @@ func TestS1SelfReachedWithDeferredTransfer(t *testing.T) {
 	r.assertEq("c1 학습자 보고 문구", rep.Concepts[0].Phrase, "이 세션에서 독립적으로 설명·적용함")
 }
 
-// S2 — 오개념+확신 경로(설계 §9 궤적): recheck 강제, 피드백 게이트,
+// S2 — 오개념+확신 경로 (설계 명세의 예시 궤적): recheck 강제, 피드백 게이트,
 // scaffold 페이딩을 거쳐 guided로 도달.
 func TestS2GuidedThroughMisconception(t *testing.T) {
-	r := newRun(t, "S2. 강한 오개념 + 높은 확신 — recheck 강제와 scaffold 페이딩 (설계 §9 궤적)",
+	r := newRun(t, "S2. 강한 오개념 + 높은 확신 — recheck 강제와 scaffold 페이딩",
 		"사용자가 **확신하며 반대**하면 시스템은 AI 판정을 믿지 않고 원천(실행) 재확인을 강제한다 (I6)",
 		"재확인이 끝나면 **확인된 결과를 근거와 함께 말하기 전까지** 다음 질문이 차단된다 (P6 피드백 게이트)",
 		"단서(narrow) 통과 후에는 재조합(recombine)→**단서 없는 재시도(retry)**가 강제되고, 그 재시도의 통과만 단계 통과로 기록된다 (P1)",
@@ -166,17 +166,17 @@ func TestS2GuidedThroughMisconception(t *testing.T) {
 	r.assertEq("learning_outcome", r.jsonField(out, "outcome", "learning_outcome"), "demonstrated")
 	r.assertEq("acquisition_path (지원 구분)", r.jsonField(out, "outcome", "acquisition_path"), "guided")
 	r.assertEq("recheck_recommended", r.jsonField(out, "outcome", "recheck_recommended"), true)
-	r.assertEq("단일 개념 transfer 간격 없음 명시 (A1)", r.jsonField(out, "outcome", "transfer_gap_note"), true)
+	r.assertEq("단일 개념 transfer 간격 없음 명시", r.jsonField(out, "outcome", "transfer_gap_note"), true)
 }
 
 // S3 — 모른다고 말하는 사용자: 설명 요청은 불이익이 없고(P5), 설명 뒤에는
-// 자기 말 재구성과 새 사례가 강제된다(P1), 이후 사다리가 재개된다(A4).
+// 자기 말 재구성과 새 사례가 강제된다(P1). 이후 사다리가 재개된다.
 func TestS3ExplanationPath(t *testing.T) {
-	r := newRun(t, "S3. 솔직히 모른다는 사용자 — 설명 요청 경로 (P5/P1/A4)",
-		"사용자의 설명 요청(/explain)은 즉시 수용되며 **불이익이 없다**: end_reason은 completed, 요청은 support_events에만 기록된다 (P5/D31)",
+	r := newRun(t, "S3. 솔직히 모른다는 사용자 — 설명 요청 경로 (P5/P1)",
+		"사용자의 설명 요청(/explain)은 즉시 수용되며 **불이익이 없다**: end_reason은 completed, 요청은 support_events에만 기록된다 (P5)",
 		"설명 직후에는 자기 말 재구성(own_words) 외 어떤 질문도 **시스템이 거부**한다 (P1)",
 		"재구성 후에는 **새 사례**(--new-case) boundary/transfer만 허용되고, 그 통과는 after_explanation 경로로 기록된다",
-		"새 사례 통과 후 사다리가 재개되어 남은 단계를 계속 진행한다 (A4)")
+		"새 사례 통과 후 사다리가 재개되어 남은 단계를 계속 진행한다")
 
 	r.prep([][2]string{
 		{"결제 멱등성 키", "같은 키의 결제 요청 2회는 레코드 1개와 캐시 응답을 만든다"},
@@ -195,7 +195,7 @@ func TestS3ExplanationPath(t *testing.T) {
 		map[string]any{"action": "explain", "reason": "기초부터 듣고 싶어요"})
 	r.wait(6)
 
-	r.ai("설명 기록 — 요청은 support_events로만 기록됨 (D31)", "",
+	r.ai("설명 기록 — 요청은 support_events로만 기록됨", "",
 		"explanation", "record", "--concept", "c1",
 		"--text", "서버는 요청의 키를 저장하고, 같은 키가 다시 오면 처리 대신 저장된 결과를 돌려준다. 그래서 부작용은 1회다")
 
@@ -219,7 +219,7 @@ func TestS3ExplanationPath(t *testing.T) {
 		sure("1시간 지나면 같은 키도 새 요청, 기억이 지워져서"), alignedMech(),
 		"aligned/mechanism — boundary=pass(after_explanation)")
 
-	// A4: 사다리 재개
+	// 설명 이후 사다리 재개
 	r.passStage("predict", "c1", "재개: 같은 키 두 번, 레코드 수와 두 번째 응답은?",
 		"레코드 1, 두 번째는 저장된 첫 응답")
 	r.passStage("why", "c1", "왜 그렇게 되는지 순서대로?",
@@ -238,7 +238,7 @@ func TestS3ExplanationPath(t *testing.T) {
 		r.step("❌ support_events에 explanation_requested 없음: %s", sup)
 		t.Fatalf("support_events missing explanation_requested: %s", sup)
 	}
-	r.step("✔️ 검증: support_events에 `explanation_requested` 기록됨 (D31) — %s", sup)
+	r.step("✔️ 검증: support_events에 `explanation_requested` 기록됨 — %s", sup)
 }
 
 // S4 — AI가 틀린 경우: 사용자 확신 유지 → recheck가 claim을 반증 →

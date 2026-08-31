@@ -5,7 +5,7 @@ import "testing"
 // Regression tests for the pre-release review findings.
 
 // A --stage flag conflicting with --kind must be rejected: it previously
-// bypassed the D35 transfer lock and stage-already-passed checks.
+// bypassed the deferred-transfer lock and stage-already-passed checks.
 func TestLadderStageKindMismatchRejected(t *testing.T) {
 	s := newAISession(t, 2)
 	_, err := s.Ask(AskParams{Kind: KindPredict, ConceptID: "c1", Stage: StageTransfer, Text: "p?"})
@@ -125,14 +125,14 @@ func TestNewCaseDiscardRearmsGate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !s.AwaitNewCase {
-		t.Fatal("discarded new case must re-arm AwaitNewCase (P1/A4)")
+		t.Fatal("discarded new case must re-arm AwaitNewCase (P1)")
 	}
 	// a plain ladder ask is still blocked
 	_, err := s.Ask(AskParams{Kind: KindWhy, ConceptID: "c1", Text: "w?"})
 	wantErr(t, err, "new-case")
 }
 
-// The close report from the engine must be exposed with §4.5 items.
+// The close report from the engine must be exposed with design §14 items.
 func TestFinalReportExposed(t *testing.T) {
 	s := newAISession(t, 1)
 	passCore(t, s, "c1")
@@ -149,6 +149,6 @@ func TestFinalReportExposed(t *testing.T) {
 		t.Fatal("FinalReport must expose the close report")
 	}
 	if rep.SharedBlindSpotNote == "" || rep.ReexplainText != "re-explained" {
-		t.Fatal("report must carry blind-spot note and reexplain text (§4.5)")
+		t.Fatal("report must carry blind-spot note and reexplain text (design §14)")
 	}
 }

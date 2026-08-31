@@ -1,6 +1,6 @@
 package engine
 
-// computeOutcome implements transitions §8 / design §3.4. The AI never sets
+// computeOutcome implements transitions §9 / design §14. The AI never sets
 // these fields; they are derived (P2, P5).
 func (s *Session) computeOutcome(c *Concept) *Outcome {
 	passes := 0
@@ -73,12 +73,12 @@ func (s *Session) computeOutcome(c *Concept) *Outcome {
 		}
 	}
 	if len(s.nonProvisionalConcepts()) == 1 {
-		out.TransferGapNote = true // A1
+		out.TransferGapNote = true // single concept: no delay gap
 	}
 	return out
 }
 
-// Finalize closes one concept: transitions §0/§3 gates + §8 computation.
+// Finalize closes one concept: transitions §4/§7 gates + §9 computation.
 func (s *Session) Finalize(conceptID string) error {
 	c := s.Concept(conceptID)
 	if c == nil {
@@ -103,9 +103,9 @@ func (s *Session) Finalize(conceptID string) error {
 		return notAllowed("explore feedback (agreed/diverging/needed evidence) required before an open outcome (P6)")
 	}
 	// P1: explanation without an independent new-case attempt cannot
-	// finalize — unless the burden limit forces an early close (A4).
+	// finalize — unless the burden limit forces an early close.
 	if c.ExplanationUsed && !c.NewCaseAttempted && !s.LimitChoiceHandled && !s.Aborted {
-		return notAllowed("explanation used: a new-case boundary/transfer must be attempted before finalize (P1/A4)")
+		return notAllowed("explanation used: a new-case boundary/transfer must be attempted before finalize (P1)")
 	}
 	c.Outcome = s.computeOutcome(c)
 	c.Finalized = true
@@ -130,7 +130,7 @@ func (s *Session) SkipConcept(conceptID string) error {
 	return nil
 }
 
-// Report is the close output (design §4.5 required items).
+// Report is the close output (design §14 required items).
 type Report struct {
 	SessionID           string          `json:"session_id"`
 	Source              Source          `json:"source"`
@@ -147,7 +147,7 @@ type ConceptReport struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
 	Outcome *Outcome `json:"outcome"`
-	// Learner-facing phrasing (design §3.4): no internal jargon.
+	// Learner-facing phrasing (design §14): no internal jargon.
 	Phrase string `json:"phrase"`
 }
 
@@ -198,7 +198,7 @@ func (s *Session) Close() (*Report, error) {
 	}
 	if !s.ReexplainDone && !s.Aborted {
 		// reexplain skipped (summary close / integrate shortcut): the
-		// session cannot vouch for consistency (transitions §8)
+		// session cannot vouch for consistency (transitions §9)
 		for _, c := range s.nonProvisionalConcepts() {
 			if c.Outcome != nil && c.Outcome.LearningOutcome != OutcomeDeferred {
 				c.Outcome.SessionConsistency = "inconsistent"
@@ -214,9 +214,9 @@ func (s *Session) Close() (*Report, error) {
 		RecheckAdvice: "다른 날 짧은 재확인 권장 (retention은 이 세션에서 판정 불가, P2)",
 	}
 	if s.Source == SourceConcept {
-		rep.SharedBlindSpotNote = "사용자 답과 AI 가설이 일치한 지점은 이 세션이 의심하지 못했다 (design §3.2)"
+		rep.SharedBlindSpotNote = "사용자 답과 AI 가설이 일치한 지점은 이 세션이 의심하지 못했다"
 	} else {
-		rep.SharedBlindSpotNote = "실행으로 확인되지 않은 일치 지점은 공유된 맹점일 수 있다 (design §3.2)"
+		rep.SharedBlindSpotNote = "실행으로 확인되지 않은 일치 지점은 공유된 맹점일 수 있다"
 	}
 	for _, c := range s.nonProvisionalConcepts() {
 		rep.Concepts = append(rep.Concepts, ConceptReport{
@@ -227,5 +227,5 @@ func (s *Session) Close() (*Report, error) {
 	return rep, nil
 }
 
-// FinalReport returns the close report (design §4.5), available after Close.
+// FinalReport returns the close report (design §14), available after Close.
 func (s *Session) FinalReport() *Report { return s.finalReport }

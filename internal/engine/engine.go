@@ -42,7 +42,7 @@ type ConceptParams struct {
 }
 
 // AddConcept registers a concept during prep. During ladder it is only
-// allowed as a provisional prerequisite registration (A5).
+// allowed as a provisional prerequisite registration.
 func (s *Session) AddConcept(p ConceptParams, provisional bool) (*Concept, error) {
 	if p.Name == "" || p.ClaimText == "" {
 		return nil, notAllowed("concept needs name and claim")
@@ -52,7 +52,7 @@ func (s *Session) AddConcept(p ConceptParams, provisional bool) (*Concept, error
 			return nil, notAllowed("provisional (prerequisite) concepts only during ladder")
 		}
 		if s.PrereqDepth >= 1 {
-			return nil, notAllowed("prerequisite recovery depth cap is 1 (A5); defer the downstream concept instead")
+			return nil, notAllowed("prerequisite recovery depth cap is 1; defer the downstream concept instead")
 		}
 		s.PrereqDepth++
 	} else {
@@ -60,7 +60,7 @@ func (s *Session) AddConcept(p ConceptParams, provisional bool) (*Concept, error
 			return nil, notAllowed("concept add only during prep")
 		}
 		if len(s.nonProvisionalConcepts()) >= 5 {
-			return nil, notAllowed("max 5 concepts (design §4.0)")
+			return nil, notAllowed("max 5 concepts (design §5.1)")
 		}
 	}
 	ct := p.ClaimType
@@ -138,7 +138,7 @@ func (s *Session) SetVerify(p VerifyParams) error {
 	}
 	if p.Status == VerifySupported {
 		if s.Source == SourceConcept && len(p.ExternalRefs) == 0 {
-			return notAllowed("concept mode: supported requires external refs (design §3.5)")
+			return notAllowed("concept mode: supported requires external refs (design §4)")
 		}
 		if s.Source != SourceConcept && len(p.Evidence) == 0 {
 			return notAllowed("%s mode: supported requires executed counterexample evidence", s.Source)
@@ -156,7 +156,7 @@ func (s *Session) SetVerify(p VerifyParams) error {
 	return nil
 }
 
-// Start moves prep -> open (transitions §0 row 1).
+// Start moves prep -> open (transitions §1 row 1).
 func (s *Session) Start() error {
 	if s.Phase != PhasePrep {
 		return notAllowed("start only from prep")
@@ -187,7 +187,7 @@ type AskParams struct {
 }
 
 // Ask registers a question (one screen, one question). Every ask is a
-// response-requiring screen, so it counts toward burden (P8/A7).
+// response-requiring screen, so it counts toward burden (P8).
 func (s *Session) Ask(p AskParams) (*Question, error) {
 	if s.Pending != nil {
 		return nil, notAllowed("question %s is pending; one screen one question", s.Pending.QID)
@@ -228,7 +228,7 @@ func (s *Session) Ask(p AskParams) (*Question, error) {
 	}
 	s.NextQID++
 	s.Pending = q
-	s.BurdenCount++ // A7: every response-requiring screen
+	s.BurdenCount++ // every response-requiring screen counts toward burden
 	s.noteAskSideEffects(&p)
 	// P8 burden gate. The ratio check only kicks in past 10 screens so
 	// early-session noise (burden 2 vs judged 1) does not trip it.
@@ -328,11 +328,11 @@ func (s *Session) validateAskKind(p *AskParams) error {
 		}
 		p.Stage = st
 		if st == StageTransfer && !c.TransferUnlocked && !(s.AwaitNewCase && p.NewCase) {
-			return notAllowed("transfer for %s is deferred until the next concept's boundary (D35)", c.ID)
+			return notAllowed("transfer for %s is deferred until the next concept's boundary", c.ID)
 		}
 		if c.stage(st).State == StagePass && !(s.AwaitNewCase && p.NewCase) {
 			// exception: why re-confirmation after a transfer setback
-			// (transitions §1: transfer contradicted, why_returns=0)
+			// (transitions §2: transfer contradicted, why_returns=0)
 			whyReturn := st == StageWhy && c.WhyReturns > 0 &&
 				c.stage(StageTransfer).State != StagePass
 			if !whyReturn {
@@ -340,7 +340,7 @@ func (s *Session) validateAskKind(p *AskParams) error {
 			}
 		}
 	case KindConsequence:
-		// P0-7 / I1: explicit model + verified excluding evidence + no investigation.
+		// I1: explicit model + verified excluding evidence + no investigation.
 		if c == nil {
 			return notAllowed("consequence needs --concept")
 		}
@@ -354,7 +354,7 @@ func (s *Session) validateAskKind(p *AskParams) error {
 			return notAllowed("consequence requires verify=supported (contested/unverifiable ban it)")
 		}
 		if !s.lastClarityExplicit(c.ID) {
-			return notAllowed("consequence requires model_clarity=explicit_prediction on the user's model (P0-7)")
+			return notAllowed("consequence requires model_clarity=explicit_prediction on the user's model")
 		}
 		if p.EvidenceRef == "" || c.evidence(p.EvidenceRef) == nil || c.evidence(p.EvidenceRef).Retracted {
 			return notAllowed("consequence requires --evidence <id> pointing at verified, unretracted evidence (I1)")
@@ -386,7 +386,7 @@ func (s *Session) validateAskKind(p *AskParams) error {
 			return notAllowed("fading chain requires %s next", ep.Await)
 		}
 		if ep.RetryCount >= 2 {
-			return notAllowed("retry cap (2) reached (A2): explanation or skip only")
+			return notAllowed("retry cap (2) reached: explanation or skip only")
 		}
 		if p.Stage == "" {
 			p.Stage = ep.Stage
@@ -418,7 +418,7 @@ func (s *Session) validateAskKind(p *AskParams) error {
 		}
 	case KindPrereq:
 		if c == nil || !c.Provisional {
-			return notAllowed("prereq_recovery targets a provisional concept (A5)")
+			return notAllowed("prereq_recovery targets a provisional concept")
 		}
 	default:
 		return notAllowed("unknown question kind %q", k)
@@ -504,7 +504,7 @@ func (s *Session) ensureRuntime() {
 }
 
 // AnswerQuestion validates and accepts a user response (I3/I4) and returns
-// the waiter exit code (squiz-core.md §3).
+// the waiter exit code (docs/spec/core.md §3).
 func (s *Session) AnswerQuestion(a Answer) (int, error) {
 	s.ensureRuntime()
 	if s.Pending == nil {
@@ -657,7 +657,7 @@ func (s *Session) recordDiscard(q *Question, quality QuestionQuality) {
 	}
 	if q.NewCase {
 		// the mandatory post-explanation new case died without judgment:
-		// re-arm the P1 gate so the next attempt is still required (A4)
+		// re-arm the P1 gate so the next attempt is still required
 		s.AwaitNewCase = true
 	}
 	// burden was already counted at ask (P8); judged is untouched (I7)
@@ -759,7 +759,7 @@ func (s *Session) AllowedSummary() []string {
 }
 
 func (s *Session) nextStageKind(c *Concept) QuestionKind {
-	for _, st := range Ladder[:3] { // transfer is deferred (D35)
+	for _, st := range Ladder[:3] { // transfer is deferred
 		if c.stage(st).State != StagePass {
 			return QuestionKind(st)
 		}

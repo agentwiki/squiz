@@ -113,7 +113,7 @@ func (s *Session) Restore(j Judgment) error {
 }
 
 // recomputeStages re-derives ladder stage states from the untainted
-// judgment history (design §4.4: retroactive re-judgment).
+// judgment history (design §11: retroactive re-judgment).
 func (s *Session) recomputeStages(c *Concept) {
 	for _, st := range Ladder {
 		si := c.stage(st)
@@ -154,7 +154,7 @@ func (s *Session) recomputeStages(c *Concept) {
 
 // Defect (ai mode): the user's challenge exposed a real defect. Only the
 // executed, confirmed propositions are vindicated — no stage or concept
-// passes (P0-10 / D33).
+// passes: finding a defect is not the same as understanding the concept.
 func (s *Session) Defect(conceptID, description string, vindicated []string) error {
 	if s.Source != SourceAI {
 		return notAllowed("defect is an ai-mode event; use finding in code mode")
@@ -164,7 +164,7 @@ func (s *Session) Defect(conceptID, description string, vindicated []string) err
 		return notAllowed("unknown concept %q", conceptID)
 	}
 	if len(vindicated) == 0 {
-		return notAllowed("defect requires vindicated_propositions (P0-10)")
+		return notAllowed("defect requires vindicated_propositions")
 	}
 	c.Incidents = append(c.Incidents, Incident{Type: "defect_found", Ref: description})
 	c.Vindicated = append(c.Vindicated, vindicated...)

@@ -1,5 +1,5 @@
 // Package ipc is the file-based question/response exchange between the CLI
-// (AI side) and the TUI (user side): squiz-core.md §4-§5. Both sides only
+// (AI side) and the TUI (user side): docs/spec/core.md §4-§5. Both sides only
 // ever publish via temp-file + rename, so a reader either sees a complete
 // JSON document or nothing (I4 atomicity).
 package ipc
@@ -20,7 +20,7 @@ const (
 )
 
 // Screen is what the TUI renders: the pending question plus header context
-// (A7: concept and stage always visible) and an optional non-question
+// (concept and stage always visible) and an optional non-question
 // notice (not counted in burden).
 type Screen struct {
 	Question    *engine.Question `json:"question"`
@@ -88,7 +88,7 @@ func (x *Exchange) RefreshQuestion(sc Screen) error {
 
 // PeekResponse reads a response without consuming it (nil if none yet).
 // The caller consumes it with DropResponse only after the engine approved
-// it (squiz-core.md §2: approval before consumption).
+// it (docs/spec/core.md §2: approval before consumption).
 func (x *Exchange) PeekResponse() (*engine.Answer, error) {
 	b, err := os.ReadFile(x.rPath())
 	if errors.Is(err, os.ErrNotExist) {

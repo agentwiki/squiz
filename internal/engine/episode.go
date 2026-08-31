@@ -46,7 +46,7 @@ func (s *Session) Feedback(kind FeedbackKind, conceptID, text string) error {
 }
 
 // EpisodeClose ends the branch episode. Cause defaults to undetermined
-// (P0-6); user_misconception requires the full checklist (P3).
+// (undetermined by default); user_misconception requires the full checklist (P3).
 func (s *Session) EpisodeClose(cause Cause, checklist *MisconceptionChecklist) error {
 	if len(s.PendingRestore) > 0 {
 		return notAllowed("pending restore %v must be resolved first (I2)", s.PendingRestore)
@@ -73,7 +73,7 @@ func (s *Session) EpisodeClose(cause Cause, checklist *MisconceptionChecklist) e
 	c := s.Concept(ep.ConceptID)
 	if c != nil {
 		if cause == CauseUserMisconception {
-			c.MisconceptionEpisodes++ // only this cause counts (P0-6)
+			c.MisconceptionEpisodes++ // only this cause counts toward session_consistency
 		}
 		if cause == CausePrerequisiteGap {
 			c.Paused = true
@@ -82,7 +82,7 @@ func (s *Session) EpisodeClose(cause Cause, checklist *MisconceptionChecklist) e
 	return nil
 }
 
-// ExplanationRecord: the escape hatch (or a normal user request, D31).
+// ExplanationRecord: the escape hatch (or a normal user request).
 // After it, only own_words is allowed (P1).
 func (s *Session) ExplanationRecord(conceptID, text string) error {
 	if text == "" {
@@ -108,7 +108,7 @@ func (s *Session) ExplanationRecord(conceptID, text string) error {
 		}
 	}
 	if !allowed {
-		return notAllowed("explanation only via user request, the misconception-x3 escape, or after failed scaffolding (design §4.3)")
+		return notAllowed("explanation only via user request, the misconception-x3 escape, or after failed scaffolding (design §9)")
 	}
 	s.explainRequested = false
 	c.ExplanationUsed = true
@@ -129,7 +129,7 @@ func (s *Session) ExplanationRecord(conceptID, text string) error {
 	return nil
 }
 
-// recheck is verify --recheck: re-examining the source of truth (I6, §4).
+// recheck is verify --recheck: re-examining the source of truth (I6, transitions §5).
 func (s *Session) recheck(c *Concept, p VerifyParams) error {
 	if !s.NeedRecheck && s.openInvestigation() == nil {
 		return notAllowed("no recheck or investigation outstanding")
@@ -168,9 +168,9 @@ func (s *Session) advanceCurrent() {
 	}
 }
 
-// maybeEnterIntegrate: transitions §0 — all concepts finalized/skipped.
+// maybeEnterIntegrate: transitions §1 — all concepts finalized/skipped.
 // Entry needs one demonstrated concept AND a why pass on a DIFFERENT
-// concept (D34, v4.1).
+// concept.
 func (s *Session) maybeEnterIntegrate() {
 	if s.Phase != PhaseLadder {
 		return

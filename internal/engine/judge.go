@@ -1,7 +1,7 @@
 package engine
 
 // Judge applies the AI's structured judgment of the last answered question.
-// This is the core of reduce(state, event): transitions §1, §2, §5.
+// This is the core of reduce(state, event): transitions §2, §3, §6.
 func (s *Session) Judge(j Judgment) error {
 	s.ensureRuntime()
 	if len(s.PendingRestore) > 0 {
@@ -37,7 +37,7 @@ func (s *Session) Judge(j Judgment) error {
 	}
 	// code --role author: why measures intent; the author is the authority.
 	if s.Source == SourceCode && s.Role == RoleAuthor && q.Kind == KindWhy && j.Alignment == Contradicted {
-		return notAllowed("author mode: why is intent and cannot be contradicted (design §3.5); use mismatch + awareness")
+		return notAllowed("author mode: why is intent and cannot be contradicted (design §4); use mismatch + awareness")
 	}
 	if j.ClaimVersion == 0 {
 		j.ClaimVersion = c.Claim.Version
@@ -56,7 +56,7 @@ func (s *Session) Judge(j Judgment) error {
 	if j.QuestionQuality != QValid {
 		return s.handleInvalidQuestion(c, q, j)
 	}
-	if q.Kind != KindPrereq { // A5: recovery questions count in burden only
+	if q.Kind != KindPrereq { // prerequisite recovery questions count in burden only
 		s.JudgedCount++
 	}
 
@@ -93,7 +93,7 @@ func (s *Session) Judge(j Judgment) error {
 	}
 }
 
-// handleInvalidQuestion implements transitions §5.
+// handleInvalidQuestion implements transitions §6.
 func (s *Session) handleInvalidQuestion(c *Concept, q *Question, j Judgment) error {
 	s.recordDiscard(q, j.QuestionQuality)
 	switch j.QuestionQuality {
@@ -103,7 +103,7 @@ func (s *Session) handleInvalidQuestion(c *Concept, q *Question, j Judgment) err
 			s.openInvestigationFor(c, "two leading questions on one concept: AI may be steering answers")
 		}
 	case QPrereqMissing:
-		// prerequisite recovery (A5): pause downstream, episode cause if open
+		// prerequisite recovery: pause downstream, episode cause if open
 		c.Paused = true
 		if s.Episode != nil && s.Episode.Open && s.Episode.ConceptID == c.ID {
 			s.Episode.Cause = CausePrerequisiteGap
@@ -114,7 +114,7 @@ func (s *Session) handleInvalidQuestion(c *Concept, q *Question, j Judgment) err
 	return nil
 }
 
-// stageRubricMet encodes design §3.3 per-stage rubrics onto the judgment
+// stageRubricMet encodes design §6 per-stage rubrics onto the judgment
 // fields the AI reports (P4 content stays an AI judgment; the mapping is
 // the structural part the CLI can check).
 func stageRubricMet(src Source, ct ClaimType, st Stage, j Judgment) bool {
@@ -144,7 +144,7 @@ func (s *Session) judgeLadder(c *Concept, q *Question, j Judgment) error {
 	newCase := q.NewCase
 
 	if newCase {
-		c.NewCaseAttempted = true // A4/P1 gate: attempted, whatever the outcome
+		c.NewCaseAttempted = true // P1 gate: attempted, whatever the outcome
 	}
 	switch j.Alignment {
 	case Aligned:
@@ -201,7 +201,7 @@ func (s *Session) judgeLadder(c *Concept, q *Question, j Judgment) error {
 	case Divergent:
 		s.openInvestigationFor(c, "user answer diverges from claim: suspect the claim first")
 		if s.Source == SourceCode && s.Role == RoleAuthor && st == StagePredict {
-			// author predict divergent: investigation/recheck first (D37)
+			// author predict divergent: investigation/recheck first
 			s.NeedRecheck = true
 			s.RecheckConcept = c.ID
 		}
@@ -222,7 +222,7 @@ func (s *Session) judgeLadder(c *Concept, q *Question, j Judgment) error {
 	return notAllowed("unknown alignment %q", j.Alignment)
 }
 
-// transferSetback: transitions §1 transfer rows (why return, then narrow).
+// transferSetback: transitions §2 transfer rows (why return, then narrow).
 func (s *Session) transferSetback(c *Concept, st Stage, j Judgment) error {
 	if c.WhyReturns == 0 {
 		c.WhyReturns = 1 // session_consistency=inconsistent via finalize
@@ -246,8 +246,8 @@ func (s *Session) passStage(c *Concept, st Stage, path AcquisitionPath) {
 	s.afterStagePass(c, st)
 }
 
-// afterStagePass drives transitions §0: concept ordering and the deferred
-// transfer unlock (D35, A1).
+// afterStagePass drives transitions §1: concept ordering and the deferred
+// transfer unlock.
 func (s *Session) afterStagePass(c *Concept, st Stage) {
 	if st == StageBoundary {
 		concepts := s.nonProvisionalConcepts()
@@ -265,7 +265,7 @@ func (s *Session) afterStagePass(c *Concept, st Stage) {
 			}
 		}
 		if len(concepts) == 1 {
-			// A1: single concept — transfer right before reexplain, no gap
+			// single concept — transfer right before reexplain, no gap
 			c.TransferUnlocked = true
 		}
 		if idx == len(concepts)-1 {
@@ -289,7 +289,7 @@ func (s *Session) openEpisode(c *Concept, st Stage) {
 	}
 }
 
-// judgeEpisode implements transitions §2 for scaffold-family questions.
+// judgeEpisode implements transitions §3 for scaffold-family questions.
 func (s *Session) judgeEpisode(c *Concept, q *Question, j Judgment) error {
 	ep := s.Episode
 	if ep == nil || !ep.Open {
@@ -373,7 +373,7 @@ func (s *Session) judgeRetry(c *Concept, q *Question, j Judgment) error {
 	}
 	ep.RetryCount++
 	if ep.RetryCount >= 2 {
-		// A2: retry cap — explanation or skip only
+		// retry cap — explanation or skip only
 		return nil
 	}
 	return nil // allowed: re-scaffold within limits, or explanation

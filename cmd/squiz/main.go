@@ -1,5 +1,5 @@
 // squiz — a Socratic understanding checker: Claude Code skill + CLI state
-// machine + TUI. See squiz-design.md in the repository for the design.
+// machine + TUI. See docs/spec/design.md in the repository for the design.
 package main
 
 import (

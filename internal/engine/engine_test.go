@@ -107,7 +107,7 @@ func wantErr(t *testing.T, err error, frag string) {
 	}
 }
 
-// ---- §0 session phases -----------------------------------------------------
+// ---- transitions §1 session phases -----------------------------------------------------
 
 func TestStartBlockedByPendingVerify(t *testing.T) {
 	s, _ := NewSession("t", SourceAI, RoleNone)
@@ -126,7 +126,7 @@ func TestConceptModeSupportedNeedsExternalRefs(t *testing.T) {
 func TestTransferDeferredAcrossConcepts(t *testing.T) {
 	s := newAISession(t, 2)
 	passCore(t, s, "c1")
-	// A.transfer locked until B.boundary (D35)
+	// A.transfer locked until B.boundary
 	_, err := s.Ask(AskParams{Kind: KindTransfer, ConceptID: "c1", Text: "t?"})
 	wantErr(t, err, "deferred")
 	passCore(t, s, "c2")
@@ -143,7 +143,7 @@ func TestSingleConceptTransferGapNote(t *testing.T) {
 	s := newAISession(t, 1)
 	passCore(t, s, "c1")
 	if !s.Concept("c1").TransferUnlocked {
-		t.Fatal("single concept: transfer unlocks at boundary (A1)")
+		t.Fatal("single concept: transfer unlocks at boundary")
 	}
 	aaj(t, s, AskParams{Kind: KindTransfer, ConceptID: "c1", Text: "t?"}, Sure, alignedMech())
 	mustFeedbackConcept(t, s, "c1")
@@ -151,7 +151,7 @@ func TestSingleConceptTransferGapNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !s.Concept("c1").Outcome.TransferGapNote {
-		t.Fatal("A1: single-concept outcome must carry the gap note")
+		t.Fatal("single-concept outcome must carry the gap note")
 	}
 }
 
@@ -163,7 +163,7 @@ func mustFeedbackConcept(t *testing.T, s *Session, cid string) {
 }
 
 func TestIntegrateNeedsTwoDistinctConcepts(t *testing.T) {
-	// single demonstrated concept must NOT enter integrate (D34 v4.1)
+	// single demonstrated concept must NOT enter integrate
 	s := newAISession(t, 1)
 	passCore(t, s, "c1")
 	aaj(t, s, AskParams{Kind: KindTransfer, ConceptID: "c1", Text: "t?"}, Sure, alignedMech())
@@ -252,7 +252,7 @@ func TestEpisodeCauseDefaultsUndetermined(t *testing.T) {
 		t.Fatal(err)
 	}
 	if s.Episode.Cause != CauseUndetermined {
-		t.Fatalf("cause = %s, want undetermined (P0-6)", s.Episode.Cause)
+		t.Fatalf("cause = %s, want undetermined", s.Episode.Cause)
 	}
 	if s.Concept("c1").MisconceptionEpisodes != 0 {
 		t.Fatal("undetermined must not count as misconception")
@@ -271,7 +271,7 @@ func TestScaffoldCapThree(t *testing.T) {
 	wantErr(t, err, "scaffold limit")
 }
 
-func TestRetryCapA2(t *testing.T) {
+func TestRetryCap(t *testing.T) {
 	s := newAISession(t, 1)
 	aaj(t, s, AskParams{Kind: KindPredict, ConceptID: "c1", Text: "p?"}, Unsure,
 		Judgment{Alignment: Contradicted, ModelClarity: ClarityVague})
@@ -304,7 +304,7 @@ func TestPassRequiresUnscaffolded(t *testing.T) {
 	wantErr(t, err, "")
 }
 
-// ---- P7 / I7 / §5 question quality ----------------------------------------
+// ---- P7 / I7 / transitions §6 question quality ----------------------------------------
 
 func TestPartialRequiresCredit(t *testing.T) {
 	s := newAISession(t, 1)
@@ -349,7 +349,7 @@ func TestTwoLeadingQuestionsOpenInvestigation(t *testing.T) {
 	}
 }
 
-func TestPrerequisiteGapA5(t *testing.T) {
+func TestPrerequisiteGap(t *testing.T) {
 	s := newAISession(t, 1)
 	aaj(t, s, AskParams{Kind: KindPredict, ConceptID: "c1", Text: "p?"}, Unsure,
 		Judgment{Alignment: Contradicted, QuestionQuality: QPrereqMissing})
@@ -365,7 +365,7 @@ func TestPrerequisiteGapA5(t *testing.T) {
 	}
 	_, err = s.AddConcept(ConceptParams{Name: "prereq2", ClaimText: "deeper"}, true)
 	wantErr(t, err, "depth cap")
-	// recovery question counts in burden only (A5)
+	// recovery question counts in burden only
 	j0, b0 := s.JudgedCount, s.BurdenCount
 	aaj(t, s, AskParams{Kind: KindPrereq, ConceptID: pc.ID, Text: "recover?"}, Sure,
 		Judgment{Alignment: Aligned, Support: SupMechanism})
@@ -378,7 +378,7 @@ func TestPrerequisiteGapA5(t *testing.T) {
 	}
 }
 
-// ---- I6 / P6 / §4 AI error paths -------------------------------------------
+// ---- I6 / P6 / transitions §5 AI error paths -------------------------------------------
 
 func TestSureContradictionForcesRecheck(t *testing.T) {
 	s := newAISession(t, 1)
@@ -459,7 +459,7 @@ func TestDefectVindicationOnly(t *testing.T) {
 	}
 	c := s.Concept("c1")
 	if c.stage(StagePredict).State == StagePass {
-		t.Fatal("defect must not pass any stage (P0-10/D33)")
+		t.Fatal("defect must not pass any stage")
 	}
 	if len(c.Vindicated) != 1 {
 		t.Fatal("vindicated proposition must be recorded")
@@ -510,7 +510,7 @@ func TestAuthorWhyCannotBeContradicted(t *testing.T) {
 	}
 }
 
-// ---- §3 explanation & autonomy ---------------------------------------------
+// ---- transitions §4 explanation & autonomy ---------------------------------------------
 
 func TestExplanationChainAndLadderResume(t *testing.T) {
 	s := newAISession(t, 1)
@@ -542,10 +542,10 @@ func TestExplanationChainAndLadderResume(t *testing.T) {
 		t.Fatalf("new-case boundary = %s/%s, want pass/after_explanation",
 			c.stage(StageBoundary).State, c.stage(StageBoundary).Path)
 	}
-	// A4: ladder resumes — remaining stages still askable
+	// ladder resumes after the new case — remaining stages still askable
 	aaj(t, s, AskParams{Kind: KindWhy, ConceptID: "c1", Text: "w?"}, Sure, alignedMech())
 	if c.stage(StageWhy).State != StagePass {
-		t.Fatal("ladder must resume after the new case (A4)")
+		t.Fatal("ladder must resume after the new case")
 	}
 	// path is after_explanation at finalize
 	aaj(t, s, AskParams{Kind: KindPredict, ConceptID: "c1", Text: "p2?"}, Sure, alignedMech())
@@ -627,7 +627,7 @@ func TestExplanationRequestIsNotAnEndReason(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("explanation_requested must be recorded as a support event (D31)")
+		t.Fatal("explanation_requested must be recorded as a support event")
 	}
 }
 
@@ -761,7 +761,7 @@ func TestDemonstratedNeedsFourUnscaffolded(t *testing.T) {
 	}
 }
 
-// ---- full trajectory (design §9) -------------------------------------------
+// ---- full trajectory (design §17) -------------------------------------------
 
 func TestExampleTrajectory(t *testing.T) {
 	s := newAISession(t, 2)
@@ -839,7 +839,7 @@ func TestExampleTrajectory(t *testing.T) {
 	}
 }
 
-// ---- generative: transitions §1 predict rows -------------------------------
+// ---- generative: transitions §2 predict rows -------------------------------
 
 func TestGenerativePredictRow(t *testing.T) {
 	type expect struct {
@@ -881,7 +881,7 @@ func TestGenerativePredictRow(t *testing.T) {
 	}
 }
 
-// ---- generative: transitions §1 why rows -----------------------------------
+// ---- generative: transitions §2 why rows -----------------------------------
 
 func TestGenerativeWhyRow(t *testing.T) {
 	cases := []struct {

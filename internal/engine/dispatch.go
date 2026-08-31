@@ -6,7 +6,7 @@ import (
 )
 
 // Event payloads. Every state change flows through Apply so that replaying
-// events.jsonl reproduces the exact state (squiz-core.md §4).
+// events.jsonl reproduces the exact state (docs/spec/core.md §4).
 
 type InitPayload struct {
 	ID     string `json:"id"`

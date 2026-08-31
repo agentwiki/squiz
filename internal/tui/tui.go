@@ -1,7 +1,7 @@
 // Package tui is the learner-side terminal UI (`squiz ui`). One screen, one
-// question (design §4.6); the header always shows concept · stage (A7).
+// question (design §13); the header always shows concept · stage.
 // Slash commands map to the autonomy exits: /clarify /explain /skip /object
-// /abort (squiz-core.md §3).
+// /abort (docs/spec/core.md §3).
 package tui
 
 import (
@@ -202,7 +202,7 @@ func (m model) View() string {
 	}
 	q := m.screen.Question
 
-	// A7: concept · stage always visible in the header
+	// concept · stage always visible in the header
 	head := "squiz"
 	if m.screen.ConceptName != "" {
 		head = m.screen.ConceptName

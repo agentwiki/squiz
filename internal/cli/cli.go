@@ -1,6 +1,6 @@
 // Package cli implements the squiz subcommands. Output is JSON on stdout
 // (the AI is the consumer); errors go to stderr with exit code 1, except
-// `wait`, whose exit code is the response channel (squiz-core.md §3).
+// `wait`, whose exit code is the response channel (docs/spec/core.md §3).
 package cli
 
 import (
@@ -183,12 +183,12 @@ func cmdConceptAdd(args []string) (int, error) {
 	name := fs.String("name", "", "concept name")
 	claim := fs.String("claim", "", "claim text")
 	ctype := fs.String("claim-type", "behavior", "behavior|intent|fact|norm")
-	provisional := fs.Bool("provisional", false, "A5 prerequisite registration")
+	provisional := fs.Bool("provisional", false, "register as a provisional prerequisite concept")
 	if err := fs.Parse(args); err != nil {
 		return 1, err
 	}
 	p := engine.ConceptAddPayload{}
-	maybeStdinJSON(&p.ConceptParams) // target_performance, depth, ... (design §4.0)
+	maybeStdinJSON(&p.ConceptParams) // target_performance, depth, ... (design §5.1)
 	if *name != "" {
 		p.Name = *name
 	}
@@ -274,7 +274,7 @@ func cmdAsk(args []string) (int, error) {
 	evidence := fs.String("evidence", "", "evidence id (consequence, I1)")
 	newCase := fs.Bool("new-case", false, "post-explanation new case (P1)")
 	options := fs.String("options", "", "comma-separated choice options")
-	notice := fs.String("notice", "", "non-question context line (A7, not counted in burden)")
+	notice := fs.String("notice", "", "non-question context line (not counted in burden)")
 	if err := fs.Parse(args); err != nil {
 		return 1, err
 	}
@@ -317,7 +317,7 @@ func screenFor(s *engine.Session, q *engine.Question, notice string) ipc.Screen 
 	return sc
 }
 
-// exit codes per squiz-core.md §3
+// exit codes per docs/spec/core.md §3
 func exitCodeFor(a engine.Answer) int {
 	switch a.Action {
 	case engine.AnswerClarify:
@@ -396,7 +396,7 @@ func cmdUI(args []string) (int, error) {
 func cmdJudge(args []string) (int, error) {
 	var j engine.Judgment
 	if err := readStdinJSON(&j); err != nil {
-		return 1, fmt.Errorf("judge reads the judgment JSON on stdin (design §4.3): %w", err)
+		return 1, fmt.Errorf("judge reads the judgment JSON on stdin (design §7): %w", err)
 	}
 	st, s, err := loadActive()
 	if err != nil {
@@ -438,7 +438,7 @@ func cmdFeedback(args []string) (int, error) {
 
 func cmdEpisodeClose(args []string) (int, error) {
 	fs := flag.NewFlagSet("episode close", flag.ContinueOnError)
-	cause := fs.String("cause", "undetermined", "episode cause (P0-6)")
+	cause := fs.String("cause", "undetermined", "episode cause (defaults to undetermined)")
 	if err := fs.Parse(args); err != nil {
 		return 1, err
 	}
@@ -527,7 +527,7 @@ func cmdDefect(args []string) (int, error) {
 		Vindicated []string `json:"vindicated_propositions"`
 	}
 	if err := readStdinJSON(&body); err != nil {
-		return 1, fmt.Errorf("defect requires vindicated_propositions JSON on stdin (P0-10): %w", err)
+		return 1, fmt.Errorf("defect requires vindicated_propositions JSON on stdin: %w", err)
 	}
 	st, s, err := loadActive()
 	if err != nil {
@@ -658,7 +658,7 @@ func cmdClose(args []string) (int, error) {
 	if err := st.Commit(s, engine.EvClose, struct{}{}); err != nil {
 		return 1, err
 	}
-	// the engine builds the §4.5 report (learner phrasing, blind-spot note)
+	// the engine builds the design §14 report (learner phrasing, blind-spot note)
 	printJSON(s.FinalReport())
 	return 0, nil
 }

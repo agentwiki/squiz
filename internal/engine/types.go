@@ -1,6 +1,6 @@
 // Package engine implements the squiz state machine: the reduce(state, event)
-// specified by squiz-transitions.md (v4.1) and the invariants I1-I8 / P1-P8
-// from squiz-design.md and squiz-core.md. The CLI and TUI are thin shells
+// specified by docs/spec/transitions.md and the invariants I1-I8 / P1-P8
+// from docs/spec/design.md and docs/spec/core.md. The CLI and TUI are thin shells
 // around this package; every rule the docs mark as CLI-enforced lives here.
 package engine
 
@@ -43,10 +43,10 @@ const (
 )
 
 // Ladder is the stage order within one concept. Transfer is deferred across
-// concepts (D35); see Session.nextLadderTarget.
+// concepts; see Session.nextLadderTarget.
 var Ladder = []Stage{StagePredict, StageWhy, StageBoundary, StageTransfer}
 
-// StageState: A3 resolved — no "fail" terminal state. Exhausted stages stay
+// StageState: no "fail" terminal state. Exhausted stages stay
 // pending ("evidence not obtained this session").
 type StageState string
 
@@ -237,7 +237,7 @@ type Evidence struct {
 	Retracted bool   `json:"retracted,omitempty"`
 }
 
-// Judgment is the AI's structured judgment of one answer (design §4.3).
+// Judgment is the AI's structured judgment of one answer (design §7).
 type Judgment struct {
 	QID             string          `json:"qid"`
 	Alignment       Alignment       `json:"alignment"`
@@ -271,14 +271,14 @@ type Question struct {
 	Stage        Stage        `json:"stage,omitempty"`
 	Text         string       `json:"text"`
 	HintLevel    int          `json:"hint_level,omitempty"`
-	NewCase      bool         `json:"new_case,omitempty"` // post-explanation new case (P1/A4)
+	NewCase      bool         `json:"new_case,omitempty"` // post-explanation new case (P1)
 	Options      []string     `json:"options,omitempty"`  // structured-choice questions
 	ClarifyCount int          `json:"clarify_count,omitempty"`
 	EvidenceRef  string       `json:"evidence_ref,omitempty"` // consequence: verified evidence (I1)
 }
 
 // AnswerAction: what the user did with the pending question in the TUI.
-// Maps to waiter exit codes (squiz-core.md §3).
+// Maps to waiter exit codes (docs/spec/core.md §3).
 type AnswerAction string
 
 const (
@@ -297,7 +297,7 @@ type Answer struct {
 	Text       string       `json:"text,omitempty"`
 	Confidence Confidence   `json:"confidence,omitempty"`
 	Choice     int          `json:"choice,omitempty"` // 1-based index into Question.Options
-	Reason     string       `json:"reason,omitempty"` // e.g. explanation-request reason (D31)
+	Reason     string       `json:"reason,omitempty"` // e.g. explanation-request reason
 }
 
 type Incident struct {
@@ -321,7 +321,7 @@ type Outcome struct {
 	SupportEvents      []string        `json:"support_events"`
 	Incidents          []Incident      `json:"incidents"`
 	Vindicated         []string        `json:"vindicated_propositions"`
-	TransferGapNote    bool            `json:"transfer_gap_note,omitempty"` // A1: single-concept, no delay gap
+	TransferGapNote    bool            `json:"transfer_gap_note,omitempty"` // single concept: no delay gap
 }
 
 type Concept struct {
@@ -352,15 +352,15 @@ type Concept struct {
 	ExplanationStage Stage `json:"explanation_stage,omitempty"`
 	OwnWordsPassed   bool  `json:"own_words_passed,omitempty"`
 	NewCaseDone      bool  `json:"new_case_done,omitempty"`      // post-explanation new case passed
-	NewCaseAttempted bool  `json:"new_case_attempted,omitempty"` // post-explanation new case tried (A4)
+	NewCaseAttempted bool  `json:"new_case_attempted,omitempty"` // post-explanation new case tried
 
-	TransferUnlocked    bool     `json:"transfer_unlocked,omitempty"` // D35 gating
+	TransferUnlocked    bool     `json:"transfer_unlocked,omitempty"` // deferred-transfer gating
 	FeedbackDone        bool     `json:"feedback_done,omitempty"`     // P6 concept feedback
 	ExploreFeedbackDone bool     `json:"explore_feedback_done,omitempty"`
 	Finalized           bool     `json:"finalized,omitempty"`
 	Deferred            bool     `json:"deferred,omitempty"`    // skipped
 	Paused              bool     `json:"paused,omitempty"`      // prerequisite_gap downstream pause
-	Provisional         bool     `json:"provisional,omitempty"` // A5 lightweight prerequisite registration
+	Provisional         bool     `json:"provisional,omitempty"` // lightweight prerequisite registration
 	Outcome             *Outcome `json:"outcome,omitempty"`
 	AbortedMid          bool     `json:"aborted_mid,omitempty"`
 }
@@ -370,7 +370,7 @@ type Episode struct {
 	ConceptID     string `json:"concept_id"`
 	Stage         Stage  `json:"stage"`
 	ScaffoldCount int    `json:"scaffold_count"` // narrow+hint questions, <=3
-	RetryCount    int    `json:"retry_count"`    // A2: <=2
+	RetryCount    int    `json:"retry_count"`    // <=2
 	Cause         Cause  `json:"cause"`
 	Open          bool   `json:"open"`
 	Scaffolded    bool   `json:"scaffolded"` // any scaffold used in this episode
@@ -451,7 +451,7 @@ type Session struct {
 	ReexplainDone      bool `json:"reexplain_done,omitempty"`
 	Aborted            bool `json:"aborted,omitempty"`
 
-	PrereqDepth int `json:"prereq_depth,omitempty"` // A5: recovery depth used (cap 1)
+	PrereqDepth int `json:"prereq_depth,omitempty"` // recovery depth used (cap 1)
 
 	LeadingCount map[string]int `json:"leading_count,omitempty"` // per concept: 2 -> investigation
 

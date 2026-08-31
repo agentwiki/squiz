@@ -39,6 +39,8 @@ jobs:
         run: |
           sh -n plugins/squiz/scripts/install.sh
           shellcheck plugins/squiz/scripts/install.sh
+      - name: Doc references resolve
+        run: python3 scripts/check-doc-refs.py --ci
       - name: Plugin skill stays in sync with repo skill
         run: |
           diff \

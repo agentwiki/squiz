@@ -303,7 +303,7 @@ func (r *run) prep(concepts [][2]string, openAnswer string) {
 	r.respond(fmt.Sprintf("(baseline) “%s”", openAnswer),
 		map[string]any{"action": "answer", "text": openAnswer, "confidence": "unsure"})
 	r.wait(0)
-	r.step("⚙️ baseline만 기록 — open 답변은 판정하지 않음 (설계 §4.1)")
+	r.step("⚙️ baseline만 기록 — open 답변은 판정하지 않음")
 }
 
 func alignedMech() map[string]any {

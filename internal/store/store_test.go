@@ -8,7 +8,7 @@ import (
 )
 
 // TestReplayDeterminism: events.jsonl replay must reproduce the exact state
-// (squiz-core.md §4: the log is the source of truth, state.json a cache).
+// (docs/spec/core.md §4: the log is the source of truth, state.json a cache).
 func TestReplayDeterminism(t *testing.T) {
 	dir := t.TempDir()
 	st, err := Open(dir)
