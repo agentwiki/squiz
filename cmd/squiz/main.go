@@ -8,7 +8,7 @@ import (
 	"github.com/agentwiki/squiz/internal/cli"
 )
 
-// set by goreleaser: -ldflags "-X main.version=v0.1.0"
+// set by GoReleaser, for example: -ldflags "-X main.version=v0.2.0"
 var version = "dev"
 
 func main() {

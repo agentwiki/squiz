@@ -3,7 +3,7 @@
 # 이미 설치돼 있으면 그대로 사용한다. 성공 시 stdout에 바이너리 절대 경로 한 줄을 출력한다.
 #
 #   SQUIZ_INSTALL_DIR  설치 위치 (기본: $HOME/.local/bin)
-#   SQUIZ_VERSION      특정 태그 고정 (기본: 최신 릴리스, 예: v0.1.0)
+#   SQUIZ_VERSION      특정 태그 고정 (기본: 최신 릴리스, 예: v0.2.0)
 set -eu
 
 REPO="agentwiki/squiz"
