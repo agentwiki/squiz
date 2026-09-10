@@ -132,6 +132,7 @@ func (s *Session) SkipConcept(conceptID string) error {
 
 // Report is the close output (design §4.5 required items).
 type Report struct {
+	Purpose             string          `json:"purpose,omitempty"`
 	SessionID           string          `json:"session_id"`
 	Source              Source          `json:"source"`
 	OpenBaseline        string          `json:"open_baseline"`
@@ -146,7 +147,7 @@ type Report struct {
 type ConceptReport struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
-	Outcome *Outcome `json:"outcome"`
+	Outcome *Outcome `json:"outcome,omitempty"`
 	// Learner-facing phrasing (design §3.4): no internal jargon.
 	Phrase string `json:"phrase"`
 }
@@ -208,7 +209,7 @@ func (s *Session) Close() (*Report, error) {
 	}
 	s.Phase = PhaseDone
 	rep := &Report{
-		SessionID: s.ID, Source: s.Source,
+		SessionID: s.ID, Source: s.Source, Purpose: s.Purpose,
 		OpenBaseline: s.OpenBaseline, ReexplainText: s.reexplainText,
 		JudgedCount: s.JudgedCount, BurdenCount: s.BurdenCount,
 		RecheckAdvice: "다른 날 짧은 재확인 권장 (retention은 이 세션에서 판정 불가, P2)",
@@ -222,6 +223,19 @@ func (s *Session) Close() (*Report, error) {
 		rep.Concepts = append(rep.Concepts, ConceptReport{
 			ID: c.ID, Name: c.Name, Outcome: c.Outcome, Phrase: learnerPhrase(c.Outcome),
 		})
+	}
+	if s.Purpose == "ideation" {
+		rep.RecheckAdvice = "합의한 결정과 미결 사항을 확인하고 다음 설계·구현을 진행하세요."
+		rep.SharedBlindSpotNote = "제품 선택은 선호와 가설이며, 실제 사용자·실행으로 검증할 항목을 따로 남깁니다."
+		for i := range rep.Concepts {
+			rep.Concepts[i].Outcome = nil
+			rep.Concepts[i].Phrase = "제품 구상 대화를 마침 · 합의·미결 사항은 피드백과 마지막 정리에서 확인하세요"
+			if s.Aborted {
+				rep.Concepts[i].Phrase = "제품 구상 대화를 중단함"
+			} else if s.Concept(rep.Concepts[i].ID).Deferred {
+				rep.Concepts[i].Phrase = "이 결정 축의 나머지 논의를 미룸"
+			}
+		}
 	}
 	s.finalReport = rep
 	return rep, nil

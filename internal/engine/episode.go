@@ -172,7 +172,7 @@ func (s *Session) advanceCurrent() {
 // Entry needs one demonstrated concept AND a why pass on a DIFFERENT
 // concept (D34, v4.1).
 func (s *Session) maybeEnterIntegrate() {
-	if s.Phase != PhaseLadder {
+	if s.Phase != PhaseLadder && !(s.Purpose == "ideation" && s.Phase == PhaseOpen) {
 		return
 	}
 	for _, c := range s.nonProvisionalConcepts() {

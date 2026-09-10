@@ -265,6 +265,7 @@ type JudgmentRecord struct {
 }
 
 type Question struct {
+	Notice       string       `json:"notice,omitempty"`
 	QID          string       `json:"qid"`
 	Kind         QuestionKind `json:"kind"`
 	ConceptID    string       `json:"concept_id,omitempty"`
@@ -282,13 +283,14 @@ type Question struct {
 type AnswerAction string
 
 const (
-	AnswerText    AnswerAction = "answer"  // exit 0
-	AnswerClarify AnswerAction = "clarify" // exit 2
-	AnswerAbort   AnswerAction = "abort"   // exit 4
-	AnswerExplain AnswerAction = "explain" // exit 6
-	AnswerObject  AnswerAction = "object"  // exit 7
-	AnswerSkip    AnswerAction = "skip"    // exit 8
-	AnswerChoice  AnswerAction = "choice"  // structured selection, exit 0
+	AnswerProposal AnswerAction = "proposal" // alternative to a structured choice, exit 0
+	AnswerText     AnswerAction = "answer"   // exit 0
+	AnswerClarify  AnswerAction = "clarify"  // exit 2
+	AnswerAbort    AnswerAction = "abort"    // exit 4
+	AnswerExplain  AnswerAction = "explain"  // exit 6
+	AnswerObject   AnswerAction = "object"   // exit 7
+	AnswerSkip     AnswerAction = "skip"     // exit 8
+	AnswerChoice   AnswerAction = "choice"   // structured selection, exit 0
 )
 
 type Answer struct {
@@ -415,11 +417,13 @@ type Event struct {
 // Session is the full state. Serialized as state.json (a cache; the event
 // log wins on divergence).
 type Session struct {
-	ID       string     `json:"id"`
-	Source   Source     `json:"source"`
-	Role     Role       `json:"role"`
-	Phase    Phase      `json:"phase"`
-	Concepts []*Concept `json:"concepts"`
+	Purpose         string     `json:"purpose,omitempty"`
+	LearnerMessages []string   `json:"learner_messages,omitempty"`
+	ID              string     `json:"id"`
+	Source          Source     `json:"source"`
+	Role            Role       `json:"role"`
+	Phase           Phase      `json:"phase"`
+	Concepts        []*Concept `json:"concepts"`
 
 	CurrentConcept string    `json:"current_concept,omitempty"`
 	Pending        *Question `json:"pending,omitempty"`

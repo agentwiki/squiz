@@ -152,3 +152,98 @@ func TestFinalReportExposed(t *testing.T) {
 		t.Fatal("report must carry blind-spot note and reexplain text (§4.5)")
 	}
 }
+
+func TestOpenExplanationRecovery(t *testing.T) {
+	s, _ := NewSession("open-explain", SourceAI, RoleNone)
+	s.AddConcept(ConceptParams{Name: "범위", ClaimText: "범위를 제한한다", ClaimType: ClaimBehavior}, false)
+	if err := s.SetVerify(VerifyParams{ConceptID: "c1", Status: VerifySupported, Evidence: []Evidence{{Kind: "execution", Text: "clamp(14,0,10)=10"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Start(); err != nil {
+		t.Fatal(err)
+	}
+	q := mustAsk(t, s, AskParams{Kind: KindOpen, ConceptID: "c1", Text: "어떻게?"})
+	mustAnswer(t, s, Answer{QID: q.QID, Action: AnswerExplain})
+	if got := s.AllowedSummary(); len(got) != 1 || got[0] != "explanation record" {
+		t.Fatal(got)
+	}
+	if err := s.Apply(EvExplanation, mustJSON(ExplanationPayload{ConceptID: "c1", Text: "범위 밖 값은 경계로 바꾼다"})); err != nil {
+		t.Fatal(err)
+	}
+	aaj(t, s, AskParams{Kind: KindOwnWords, ConceptID: "c1", Text: "자기 말로?"}, Unsure, Judgment{Alignment: Aligned, Support: SupMechanism, ModelClarity: ClarityExplicit})
+	if got := s.AllowedSummary(); len(got) != 1 || got[0] != "ask --kind boundary|transfer --new-case (P1)" {
+		t.Fatal(got)
+	}
+	if _, err := s.Ask(AskParams{Kind: KindOpen, Text: "다시?"}); err == nil {
+		t.Fatal("open bypassed mandatory new case")
+	}
+	aaj(t, s, AskParams{Kind: KindBoundary, ConceptID: "c1", Text: "두 경계가 같다면?", NewCase: true}, Unsure, Judgment{Alignment: Aligned, Support: SupMechanism, ModelClarity: ClarityExplicit})
+	if s.Phase != PhaseLadder || !s.Concept("c1").NewCaseAttempted {
+		t.Fatalf("phase=%s", s.Phase)
+	}
+	mustAsk(t, s, AskParams{Kind: KindPredict, ConceptID: "c1", Text: "다음 예측?"})
+	if len(s.LearnerMessages) != 1 {
+		t.Fatal("explanation not recorded for learner")
+	}
+}
+
+func TestObjectionAllowedAndFeedbackGate(t *testing.T) {
+	s := newAISession(t, 1)
+	q := mustAsk(t, s, AskParams{Kind: KindPredict, ConceptID: "c1", Text: "예측?"})
+	mustAnswer(t, s, Answer{QID: q.QID, Action: AnswerObject})
+	if got := s.AllowedSummary(); len(got) != 1 || got[0] != "objection --discard OR objection --reason <reason>" {
+		t.Fatal(got)
+	}
+	if err := s.ResolveObjection(false, "조건 확인"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.InvestigationClose("supported"); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.AllowedSummary(); len(got) != 1 || got[0] != "feedback --kind recheck (P6)" {
+		t.Fatal(got)
+	}
+}
+
+func TestIdeationCloseHasNoLearningAssessment(t *testing.T) {
+	s := newAISession(t, 1)
+	s.Purpose = "ideation"
+	if err := s.SkipConcept("c1"); err != nil {
+		t.Fatal(err)
+	}
+	q := mustAsk(t, s, AskParams{Kind: KindReexplain, Text: "결정 정리?"})
+	mustAnswer(t, s, Answer{QID: q.QID, Action: AnswerText, Text: "로컬 우선"})
+	r, err := s.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Concepts[0].Outcome != nil || r.Purpose != "ideation" {
+		t.Fatalf("%#v", r)
+	}
+}
+
+func TestIdeationChoicesFinishFromOpen(t *testing.T) {
+	s, _ := NewSession("ideas", SourceConcept, RoleNone)
+	s.Purpose = "ideation"
+	s.AddConcept(ConceptParams{Name: "저장", ClaimText: "로컬", ClaimType: ClaimNorm}, false)
+	if err := s.SetVerify(VerifyParams{ConceptID: "c1", Status: VerifyContested}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Start(); err != nil {
+		t.Fatal(err)
+	}
+	q := mustAsk(t, s, AskParams{Kind: KindOpen, ConceptID: "c1", Text: "어디?", Options: []string{"로컬", "클라우드"}})
+	mustAnswer(t, s, Answer{QID: q.QID, Action: AnswerProposal, Text: "둘 다 선택적으로"})
+	if s.LastAnswer != nil {
+		t.Fatal("preference must not be judged")
+	}
+	if err := s.Feedback(FeedbackConcept, "c1", "로컬 기본, 공유 선택"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Finalize("c1"); err != nil {
+		t.Fatal(err)
+	}
+	if s.Phase != PhaseClose {
+		t.Fatal(s.Phase)
+	}
+}

@@ -5,14 +5,18 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/agentwiki/squiz/internal/store"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/agentwiki/squiz/internal/engine"
 	"github.com/agentwiki/squiz/internal/ipc"
@@ -39,6 +43,12 @@ var confLabels = map[engine.Confidence]string{
 type tickMsg time.Time
 
 type model struct {
+	store         *store.Store
+	sessionID     string
+	progress      *ipc.Status
+	custom        bool
+	height        int
+	scroll        int
 	x             *ipc.Exchange
 	screen        *ipc.Screen
 	answered      string // qid already answered, waiting for the next screen
@@ -70,6 +80,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
+		m.height = msg.Height
 		w := msg.Width - 4
 		if w > 100 {
 			w = 100
@@ -79,6 +90,55 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tickMsg:
+		if m.store != nil {
+			id, err := m.store.ActiveID()
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					m.errText = err.Error()
+				}
+				return m, tick()
+			}
+			if m.x == nil || m.x.Dir != m.store.QueueDir(id) {
+				x, err := ipc.New(m.store.QueueDir(id))
+				if err != nil {
+					m.errText = err.Error()
+					return m, tick()
+				}
+				m.x = x
+				m.sessionID = id
+				m.screen = nil
+				m.answered = ""
+				m.status = ""
+				m.errText = ""
+				m.input.Reset()
+				m.confIdx = 1
+				if session, err := m.store.Load(id); err == nil {
+					st := ipc.StatusFor(session)
+					m.progress = &st
+				}
+			}
+		}
+		// The event log also heals a crash between CLI commit and status publication.
+		if m.store != nil {
+			if session, err := m.store.Load(m.sessionID); err != nil {
+				m.errText = err.Error()
+			} else if m.progress == nil || session.Seq > m.progress.Seq {
+				st := ipc.StatusFor(session)
+				m.progress = &st
+			}
+		}
+		if m.x == nil {
+			return m, tick()
+		}
+		if st, err := m.x.ReadStatus(); err != nil {
+			m.errText = err.Error()
+		} else if st != nil && (m.progress == nil || st.Seq >= m.progress.Seq) {
+			m.progress = st
+		}
+		if m.progress != nil && (m.progress.State == "done" || m.progress.State == "aborted") {
+			m.screen = nil
+			return m, tick()
+		}
 		sc, err := m.x.ReadQuestion()
 		if err != nil {
 			m.errText = err.Error()
@@ -87,6 +147,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if sc == nil || sc.Question == nil {
 			m.screen = nil
 			return m, tick()
+		}
+		if m.screen != nil && m.screen.Question.QID == sc.Question.QID {
+			m.screen = sc
 		}
 		if m.screen == nil || m.screen.Question.QID != sc.Question.QID {
 			show, reshow := sc.Question.QID != m.answered, false
@@ -106,6 +169,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.answeredTicks = 0
 				m.input.Reset()
 				m.optionIdx = 0
+				m.custom = false
+				m.scroll = 0
 				m.errText = ""
 				if reshow {
 					m.status = "응답이 접수되지 않아 같은 질문을 다시 표시합니다."
@@ -117,6 +182,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tick()
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "pgup":
+			m.scroll += max(1, m.height/2)
+			return m, nil
+		case "pgdown":
+			m.scroll = max(0, m.scroll-max(1, m.height/2))
+			return m, nil
+		case "esc":
+			if m.custom {
+				m.custom = false
+				m.input.Reset()
+				return m, nil
+			}
+		case "i":
+			if m.hasOptions() && m.screen.Question.Kind != engine.KindSessionLimit {
+				m.custom = true
+				return m, nil
+			}
 		case "ctrl+c":
 			return m, tea.Quit
 		case "tab":
@@ -165,7 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) hasOptions() bool {
-	return m.screen != nil && m.screen.Question != nil && len(m.screen.Question.Options) > 0
+	return !m.custom && m.screen != nil && m.screen.Question != nil && len(m.screen.Question.Options) > 0
 }
 
 func (m model) submitChoice(choice int) (tea.Model, tea.Cmd) {
@@ -200,7 +282,7 @@ func (m model) submit() (tea.Model, tea.Cmd) {
 			m.errText = "알 수 없는 명령: " + parts[0]
 			return m, nil
 		}
-	} else if len(q.Options) > 0 {
+	} else if len(q.Options) > 0 && !m.custom {
 		n, err := strconv.Atoi(raw)
 		if err != nil || n < 1 || n > len(q.Options) {
 			m.errText = fmt.Sprintf("1~%d 중 번호를 입력하세요", len(q.Options))
@@ -214,6 +296,9 @@ func (m model) submit() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		a.Action = engine.AnswerText
+		if m.custom {
+			a.Action = engine.AnswerProposal
+		}
 		a.Text = raw
 		a.Confidence = confidences[m.confIdx]
 	}
@@ -234,10 +319,33 @@ func (m model) publish(a engine.Answer) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	w := m.width
+	if w <= 0 {
+		w = 80
+	}
+	content := ansi.Hardwrap(ansi.Wrap(m.content(), w, ""), w, true)
+	if m.height > 2 {
+		lines := strings.Split(content, "\n")
+		if len(lines) > m.height {
+			end := max(m.height-1, len(lines)-m.scroll)
+			end = min(end, len(lines))
+			return strings.Join(lines[max(0, end-m.height+1):end], "\n") + "\n" + ansi.Wrap("PgUp/PgDn 이전 내용·아래 보기", w, "")
+		}
+	}
+	return content
+}
+func (m model) content() string {
 	var b strings.Builder
 	if m.screen == nil {
-		b.WriteString(waitStyle.Render("··· 질문을 기다리는 중 (AI가 준비되면 여기 나타납니다)"))
-		if m.status != "" {
+		if m.progress != nil {
+			b.WriteString(m.progress.Text + "\n")
+			for _, text := range m.progress.Messages {
+				b.WriteString(text + "\n")
+			}
+		} else {
+			b.WriteString("세션 초기화를 기다립니다. 같은 디렉터리에서 AI가 squiz init을 실행하면 자동 연결됩니다.")
+		}
+		if m.status != "" && (m.progress == nil || m.progress.State == "question") {
 			b.WriteString("\n" + waitStyle.Render(m.status))
 		}
 		if m.errText != "" {
@@ -261,11 +369,19 @@ func (m model) View() string {
 	counts := fmt.Sprintf("  판정 %d · 화면 %d", m.screen.JudgedCount, m.screen.BurdenCount)
 	b.WriteString(headerStyle.Render(head) + helpStyle.Render(counts) + "\n")
 
+	if m.progress != nil {
+		for _, text := range m.progress.Messages {
+			b.WriteString(noticeStyle.Render(text) + "\n")
+		}
+		if m.progress.State == "error" {
+			b.WriteString(errStyle.Render(m.progress.Text) + "\n")
+		}
+	}
 	if m.screen.Notice != "" {
 		b.WriteString(noticeStyle.Render("· "+m.screen.Notice) + "\n")
 	}
-	b.WriteString(questionStyle.Render(q.Text) + "\n")
-	if len(q.Options) > 0 {
+	b.WriteString(questionStyle.Width(m.questionWidth()).Render(q.Text) + "\n")
+	if m.hasOptions() {
 		for i, opt := range q.Options {
 			line := fmt.Sprintf("  %d) %s", i+1, opt)
 			if i == m.optionIdx {
@@ -277,7 +393,7 @@ func (m model) View() string {
 	} else {
 		b.WriteString(m.input.View() + "\n")
 	}
-	if len(q.Options) == 0 {
+	if !m.hasOptions() {
 		b.WriteString("확신도: " + confStyle.Render(confLabels[confidences[m.confIdx]]) +
 			helpStyle.Render("  (Tab으로 변경 — '모르겠음'도 정상 경로입니다)") + "\n")
 	}
@@ -287,12 +403,20 @@ func (m model) View() string {
 	if m.errText != "" {
 		b.WriteString(errStyle.Render(m.errText) + "\n")
 	}
-	if len(q.Options) == 0 {
-		b.WriteString(helpStyle.Render(
-			"Ctrl+D 제출 · /clarify 질문이 이해 안 됨 · /explain 설명 요청 · /skip 건너뛰기 · /object 이의 · /abort 중단"))
+	if !m.hasOptions() {
+		prefix := "Ctrl+D 제출 · "
+		if m.custom {
+			prefix += "Esc 선택지 복귀 · "
+		}
+		b.WriteString(helpStyle.Render(prefix +
+			" /clarify 질문이 이해 안 됨 · /explain 설명 요청 · /skip 현재 개념 전체 미루기 · /object 이의 · /abort 중단"))
 	} else {
-		b.WriteString(helpStyle.Render(
-			"c 질문 명확화 · e 설명 · s 건너뛰기 · o 이의 · a 세션 중단 · Ctrl+C TUI 종료"))
+		prefix := ""
+		if q.Kind != engine.KindSessionLimit {
+			prefix = "i 다른 의견 직접 입력 · "
+		}
+		b.WriteString(helpStyle.Render(prefix +
+			"c 질문 명확화 · e 설명 · s 현재 개념 전체 미루기 · o 이의 · a 세션 중단 · Ctrl+C TUI 종료"))
 	}
 	return b.String()
 }
@@ -322,4 +446,22 @@ func Run(queueDir string) (int, error) {
 		return 1, err
 	}
 	return 0, nil
+}
+
+// RunStore waits for initialization and follows the active session pointer.
+func RunStore(st *store.Store) (int, error) {
+	m := newModel(nil)
+	m.store = st
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		return 1, err
+	}
+	return 0, nil
+}
+
+func (m model) questionWidth() int {
+	if m.width <= 0 {
+		return 76
+	}
+	return max(4, m.width-4)
 }

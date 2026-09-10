@@ -176,6 +176,7 @@ func (s *Session) Start() error {
 }
 
 type AskParams struct {
+	Notice      string       `json:"notice,omitempty"`
 	Kind        QuestionKind `json:"kind"`
 	ConceptID   string       `json:"concept_id"`
 	Stage       Stage        `json:"stage"`
@@ -224,7 +225,7 @@ func (s *Session) Ask(p AskParams) (*Question, error) {
 		QID: fmt.Sprintf("q%d", s.NextQID), Kind: p.Kind,
 		ConceptID: p.ConceptID, Stage: p.Stage, Text: p.Text,
 		HintLevel: p.HintLevel, NewCase: p.NewCase,
-		Options: p.Options, EvidenceRef: p.EvidenceRef,
+		Options: p.Options, EvidenceRef: p.EvidenceRef, Notice: p.Notice,
 	}
 	s.NextQID++
 	s.Pending = q
@@ -307,7 +308,7 @@ func (s *Session) validateAskKind(p *AskParams) error {
 			return notAllowed("session_limit_choice needs continue/summary/explanation options")
 		}
 	case KindPredict, KindWhy, KindBoundary, KindTransfer:
-		if s.Phase != PhaseLadder {
+		if s.Phase != PhaseLadder && !(s.Phase == PhaseOpen && s.AwaitNewCase && p.NewCase) {
 			return notAllowed("ladder questions only in ladder phase")
 		}
 		if c == nil {
@@ -447,6 +448,9 @@ func (s *Session) noteAskSideEffects(p *AskParams) {
 		s.ExplanationOpen = false
 	case KindBoundary, KindTransfer:
 		if s.AwaitNewCase && p.NewCase {
+			if s.Phase == PhaseOpen {
+				s.Phase = PhaseLadder
+			}
 			s.AwaitNewCase = false
 		}
 	case KindExplore:
@@ -580,6 +584,14 @@ func (s *Session) AnswerQuestion(a Answer) (int, error) {
 		s.LastAnswer = nil
 		s.lastQuestion = q
 		return 0, nil
+	case AnswerProposal:
+		if len(q.Options) == 0 || q.Kind == KindSessionLimit || strings.TrimSpace(a.Text) == "" {
+			s.Pending = q
+			return 5, notAllowed("proposal requires a choice question and nonempty text (except session_limit_choice)")
+		}
+		s.lastQuestion = q
+		s.LastAnswer = nil // preferences are not judgments
+		return 0, nil
 	case AnswerText, "":
 		switch q.Kind {
 		case KindOpen:
@@ -706,27 +718,30 @@ func (s *Session) AllowedSummary() []string {
 	if s.LimitChoicePending {
 		return []string{"ask --kind session_limit_choice (P8)"}
 	}
+	if s.objectionPending != nil {
+		return []string{"objection --discard OR objection --reason <reason>"}
+	}
+	if s.retractDue != "" {
+		return []string{"retract --concept " + s.retractDue}
+	}
+	if inv := s.openInvestigation(); inv != nil {
+		return []string{"verify --recheck --concept " + inv.ConceptID + " OR investigation close --resolution supported|retracted|unresolved"}
+	}
+	if s.ExplanationOpen || s.AwaitOwnWords {
+		return []string{"ask --kind own_words (P1)"}
+	}
+	if s.AwaitNewCase {
+		return []string{"ask --kind boundary|transfer --new-case (P1)"}
+	}
+	if s.explainRequested {
+		return []string{"explanation record"}
+	}
 	switch s.Phase {
 	case PhasePrep:
 		add("concept add / verify / start")
 	case PhaseOpen:
 		add("ask --kind open")
 	case PhaseLadder:
-		if s.ExplanationOpen {
-			add("ask --kind own_words (P1)")
-			break
-		}
-		if s.AwaitOwnWords {
-			add("ask --kind own_words (P1)")
-			break
-		}
-		if s.AwaitNewCase {
-			add("ask --kind boundary|transfer --new-case (P1)")
-			break
-		}
-		if s.explainRequested {
-			add("explanation record")
-		}
 		if ep := s.Episode; ep != nil && ep.Open {
 			if ep.Await != "" {
 				add("ask --kind %s (P1 fading)", ep.Await)
@@ -736,7 +751,19 @@ func (s *Session) AllowedSummary() []string {
 			break
 		}
 		if c := s.currentConceptObj(); c != nil {
-			add("ask --kind %s --concept %s", s.nextStageKind(c), c.ID)
+			if c.Verify != VerifySupported {
+				if c.ExploreCount < 2 {
+					add("ask --kind explore --concept %s", c.ID)
+				} else if !c.ExploreFeedbackDone {
+					add("feedback --kind explore --concept %s", c.ID)
+				} else if !c.FeedbackDone {
+					add("feedback --kind concept --concept %s", c.ID)
+				} else {
+					add("finalize --concept %s", c.ID)
+				}
+			} else if !s.readyToFinalize(c) {
+				add("ask --kind %s --concept %s", s.nextStageKind(c), c.ID)
+			}
 		}
 		for _, c := range s.Concepts {
 			if c.TransferUnlocked && c.stage(StageTransfer).State != StagePass && !c.Finalized {
@@ -753,7 +780,11 @@ func (s *Session) AllowedSummary() []string {
 	case PhaseIntegrate:
 		add("ask --kind integrate (%d/2) or close", s.IntegrateCount)
 	case PhaseClose:
-		add("ask --kind reexplain, then close")
+		if s.ReexplainDone || s.Aborted || s.summaryClose {
+			add("close")
+		} else {
+			add("ask --kind reexplain, then close")
+		}
 	}
 	return out
 }

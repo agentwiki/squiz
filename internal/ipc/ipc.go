@@ -146,3 +146,62 @@ func atomicWrite(path string, v any) error {
 	}
 	return os.Rename(tmp, path)
 }
+
+// Status carries durable session progress independently of the pending question.
+type Status struct {
+	Seq      int      `json:"seq"`
+	State    string   `json:"state"`
+	Text     string   `json:"text"`
+	Messages []string `json:"messages,omitempty"`
+}
+
+func (x *Exchange) PublishStatus(s Status) error {
+	return atomicWrite(filepath.Join(x.Dir, "status.json"), s)
+}
+func (x *Exchange) ReadStatus() (*Status, error) {
+	b, err := os.ReadFile(filepath.Join(x.Dir, "status.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var s Status
+	if err := json.Unmarshal(b, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func StatusFor(s *engine.Session) Status {
+	st := Status{Seq: s.Seq, State: "working", Text: "AI가 응답을 처리 중입니다. 오래 멈추면 AI 터미널에서 진행 상태를 확인하세요.", Messages: s.LearnerMessages}
+	if s.Pending != nil {
+		st.State = "question"
+		st.Text = "답변을 기다립니다."
+	}
+	if s.Phase == engine.PhasePrep {
+		st.Text = "세션에 연결했습니다. AI가 첫 질문을 준비 중입니다."
+	}
+	if s.Aborted {
+		st.State = "aborted"
+		st.Text = "세션을 중단했습니다. Ctrl+C로 화면을 닫거나 새 세션을 기다리세요."
+	}
+	if s.Phase == engine.PhaseDone {
+		st.State = "done"
+		st.Text = "세션이 완료되었습니다. Ctrl+C로 화면을 닫거나 새 세션을 기다리세요."
+		if s.Aborted {
+			st.State = "aborted"
+			st.Text = "세션을 중단했습니다. Ctrl+C로 화면을 닫거나 새 세션을 기다리세요."
+		}
+		if r := s.FinalReport(); r != nil {
+			for _, c := range r.Concepts {
+				st.Text += "\n" + c.Name + ": " + c.Phrase
+			}
+			if r.ReexplainText != "" {
+				st.Text += "\n마지막 정리: " + r.ReexplainText
+			}
+			st.Text += "\n" + r.RecheckAdvice
+		}
+	}
+	return st
+}

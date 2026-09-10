@@ -58,6 +58,13 @@ func (st *Store) ActiveID() (string, error) {
 
 // Create initializes a new session directory and makes it active.
 func (st *Store) Create(source engine.Source, role engine.Role) (*engine.Session, error) {
+	return st.CreateWithPurpose(source, role, "")
+}
+
+func (st *Store) CreateWithPurpose(source engine.Source, role engine.Role, purpose string) (*engine.Session, error) {
+	if purpose != "" && purpose != "learning" && purpose != "ideation" {
+		return nil, fmt.Errorf("purpose must be learning|ideation")
+	}
 	// a random suffix keeps two inits in the same second from colliding
 	var rnd [3]byte
 	if _, err := rand.Read(rnd[:]); err != nil {
@@ -75,7 +82,8 @@ func (st *Store) Create(source engine.Source, role engine.Role) (*engine.Session
 	if err != nil {
 		return nil, err
 	}
-	init := engine.InitPayload{ID: id, Source: source, Role: role}
+	s.Purpose = purpose
+	init := engine.InitPayload{ID: id, Source: source, Role: role, Purpose: purpose}
 	if err := st.appendEvent(id, engine.EvInit, init, 1); err != nil {
 		return nil, err
 	}
@@ -117,6 +125,7 @@ func (st *Store) Load(id string) (*engine.Session, error) {
 			if err != nil {
 				return nil, err
 			}
+			s.Purpose = p.Purpose
 			s.Seq = ev.Seq
 			continue
 		}

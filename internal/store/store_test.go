@@ -66,3 +66,24 @@ func TestReplayDeterminism(t *testing.T) {
 		t.Fatal("state after replay should still reject the ladder ask (episode open)")
 	}
 }
+
+func TestIdeationPurposeReplays(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := st.CreateWithPurpose(engine.SourceConcept, engine.RoleNone, "ideation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := st.Load(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Purpose != "ideation" {
+		t.Fatal(replay.Purpose)
+	}
+	if _, err := st.CreateWithPurpose(engine.SourceConcept, engine.RoleNone, "typo"); err == nil {
+		t.Fatal("invalid purpose accepted")
+	}
+}

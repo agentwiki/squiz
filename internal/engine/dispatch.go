@@ -9,9 +9,10 @@ import (
 // events.jsonl reproduces the exact state (squiz-core.md §4).
 
 type InitPayload struct {
-	ID     string `json:"id"`
-	Source Source `json:"source"`
-	Role   Role   `json:"role"`
+	Purpose string `json:"purpose,omitempty"`
+	ID      string `json:"id"`
+	Source  Source `json:"source"`
+	Role    Role   `json:"role"`
 }
 
 type ConceptAddPayload struct {
@@ -151,7 +152,11 @@ func (s *Session) Apply(typ string, payload json.RawMessage) error {
 		if err := dec(&p); err != nil {
 			return err
 		}
-		return s.Feedback(p.Kind, p.ConceptID, p.Text)
+		if err := s.Feedback(p.Kind, p.ConceptID, p.Text); err != nil {
+			return err
+		}
+		s.LearnerMessages = append(s.LearnerMessages, "피드백: "+p.Text)
+		return nil
 	case EvEpisodeClose:
 		var p EpisodeClosePayload
 		if err := dec(&p); err != nil {
@@ -163,7 +168,11 @@ func (s *Session) Apply(typ string, payload json.RawMessage) error {
 		if err := dec(&p); err != nil {
 			return err
 		}
-		return s.ExplanationRecord(p.ConceptID, p.Text)
+		if err := s.ExplanationRecord(p.ConceptID, p.Text); err != nil {
+			return err
+		}
+		s.LearnerMessages = append(s.LearnerMessages, "설명: "+p.Text)
+		return nil
 	case EvRetract:
 		var p RetractPayload
 		if err := dec(&p); err != nil {

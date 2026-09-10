@@ -28,6 +28,9 @@ func Main(args []string) int {
 		return 1
 	}
 	cmd, rest := args[0], args[1:]
+	if cmd == "--help" || cmd == "-h" {
+		cmd = "help"
+	}
 	// two-word commands: concept add, episode close, explanation record,
 	// investigation open/close
 	if len(rest) > 0 {
@@ -51,6 +54,11 @@ func Main(args []string) int {
 		return 1
 	}
 	code, err := fn(rest)
+	if cmd != "ui" && cmd != "version" && cmd != "help" {
+		if syncErr := syncStatus(err); syncErr != nil {
+			fmt.Fprintln(os.Stderr, "UI status:", syncErr)
+		}
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		if code == 0 {
@@ -161,6 +169,7 @@ func cmdVersion([]string) (int, error) {
 
 func cmdInit(args []string) (int, error) {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
+	purpose := fs.String("purpose", "learning", "learning|ideation")
 	src := fs.String("source", "", "ai|concept|code")
 	role := fs.String("role", "", "author|reviewer (code mode)")
 	if err := fs.Parse(args); err != nil {
@@ -170,7 +179,7 @@ func cmdInit(args []string) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	s, err := st.Create(engine.Source(*src), engine.Role(*role))
+	s, err := st.CreateWithPurpose(engine.Source(*src), engine.Role(*role), *purpose)
 	if err != nil {
 		return 1, err
 	}
@@ -281,7 +290,7 @@ func cmdAsk(args []string) (int, error) {
 	p := engine.AskParams{
 		Kind: engine.QuestionKind(*kind), ConceptID: *concept,
 		Stage: engine.Stage(*stage), Text: *text, HintLevel: *level,
-		EvidenceRef: *evidence, NewCase: *newCase,
+		EvidenceRef: *evidence, NewCase: *newCase, Notice: *notice,
 	}
 	if *options != "" {
 		p.Options = strings.Split(*options, ",")
@@ -306,6 +315,9 @@ func cmdAsk(args []string) (int, error) {
 }
 
 func screenFor(s *engine.Session, q *engine.Question, notice string) ipc.Screen {
+	if notice == "" {
+		notice = q.Notice
+	}
 	sc := ipc.Screen{
 		Question: q, Notice: notice,
 		JudgedCount: s.JudgedCount, BurdenCount: s.BurdenCount,
@@ -354,13 +366,18 @@ func cmdWait(args []string) (int, error) {
 	}
 	// heal a stale question.json (crash between commit and clear) without
 	// clobbering a response the user may already have posted
-	if err := x.RefreshQuestion(screenFor(s, s.Pending, "")); err != nil {
+	notice := s.Pending.Notice
+	// Older ask events lack notice; preserve the existing screen when available.
+	if old, e := x.ReadQuestion(); e == nil && old != nil && old.Question != nil && old.Question.QID == s.Pending.QID && notice == "" {
+		notice = old.Notice
+	}
+	if err := x.RefreshQuestion(screenFor(s, s.Pending, notice)); err != nil {
 		return 5, err
 	}
 	a, err := x.Wait(*timeout)
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
-			return 3, errors.New("timeout: question stays pending")
+			return 3, fmt.Errorf("timeout: question stays pending: %w", os.ErrDeadlineExceeded)
 		}
 		return 5, err
 	}
@@ -386,11 +403,7 @@ func cmdUI(args []string) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	id, err := st.ActiveID()
-	if err != nil {
-		return 1, errors.New("no active session; the AI runs `squiz init` first")
-	}
-	return tui.Run(st.QueueDir(id))
+	return tui.RunStore(st)
 }
 
 func cmdJudge(args []string) (int, error) {
@@ -706,4 +719,21 @@ func cmdStatus(args []string) (int, error) {
 	}
 	printJSON(out)
 	return 0, nil
+}
+
+func syncStatus(commandErr error) error {
+	st, s, err := loadActive()
+	if err != nil {
+		return nil
+	}
+	x, err := ipc.New(st.QueueDir(s.ID))
+	if err != nil {
+		return err
+	}
+	status := ipc.StatusFor(s)
+	if commandErr != nil && !errors.Is(commandErr, os.ErrDeadlineExceeded) {
+		status.State = "error"
+		status.Text = "AI 명령을 처리하지 못했습니다. AI 터미널에서 복구가 필요합니다.\n" + commandErr.Error() + "\n다음 동작: " + strings.Join(s.AllowedSummary(), "; ")
+	}
+	return x.PublishStatus(status)
 }
