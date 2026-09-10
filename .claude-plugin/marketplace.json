@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "소크라테스식 이해 점검 도구 squiz의 Claude Code 플러그인 마켓플레이스",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {

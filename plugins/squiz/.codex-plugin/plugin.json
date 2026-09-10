@@ -1,6 +1,6 @@
 {
   "name": "squiz",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI가 규칙을 강제하는 소크라테스식 이해 점검 튜터",
   "author": {
     "name": "agentwiki",

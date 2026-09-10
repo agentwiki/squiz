@@ -2,7 +2,7 @@
   "name": "squiz",
   "displayName": "squiz — 소크라테스식 이해 점검",
   "description": "정답 맞추기가 아니라 예측·근거·경계·전이를 사용자 스스로 수행하게 이끄는 형성평가형 튜터. 규칙은 squiz CLI(상태 기계)가 강제하고, 바이너리가 없으면 GitHub 릴리스에서 자동 설치한다.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "agentwiki",
     "url": "https://github.com/agentwiki"
