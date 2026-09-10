@@ -25,7 +25,6 @@ var (
 	questionStyle = lipgloss.NewStyle().Padding(1, 2).Width(76)
 	optionStyle   = lipgloss.NewStyle().PaddingLeft(4)
 	helpStyle     = lipgloss.NewStyle().Faint(true)
-	confStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	selectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	waitStyle     = lipgloss.NewStyle().Faint(true).Padding(2, 2)
 	errStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
@@ -45,7 +44,8 @@ type model struct {
 	answeredTicks int    // ticks the answered qid kept reappearing
 	input         textarea.Model
 	confIdx       int
-	optionIdx     int
+	optionIdx     int // keyboard/mouse focus
+	choice        int // selected option, one-based; selection is not submission
 	status        string
 	errText       string
 	width         int
@@ -53,7 +53,7 @@ type model struct {
 
 func newModel(x *ipc.Exchange) model {
 	ta := textarea.New()
-	ta.Placeholder = "답을 입력하세요… (/clarify /explain /skip /object /abort)"
+	ta.Placeholder = "답을 입력하세요…"
 	ta.SetHeight(5)
 	ta.SetWidth(76)
 	ta.Focus()
@@ -106,6 +106,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.answeredTicks = 0
 				m.input.Reset()
 				m.optionIdx = 0
+				m.choice = 0
 				m.errText = ""
 				if reshow {
 					m.status = "응답이 접수되지 않아 같은 질문을 다시 표시합니다."
@@ -120,23 +121,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "tab":
-			if m.screen != nil {
+			if m.hasOptions() {
+				m.optionIdx = (m.optionIdx + 1) % (len(m.screen.Question.Options) + len(actionButtons))
+				return m, nil
+			} else if m.screen != nil {
 				m.confIdx = (m.confIdx + 1) % len(confidences)
 				return m, nil
 			}
 		case "up", "k":
 			if m.hasOptions() {
-				m.optionIdx = (m.optionIdx - 1 + len(m.screen.Question.Options)) % len(m.screen.Question.Options)
+				total := len(m.screen.Question.Options) + len(actionButtons)
+				m.optionIdx = (m.optionIdx - 1 + total) % total
 				return m, nil
 			}
 		case "down", "j":
 			if m.hasOptions() {
-				m.optionIdx = (m.optionIdx + 1) % len(m.screen.Question.Options)
+				m.optionIdx = (m.optionIdx + 1) % (len(m.screen.Question.Options) + len(actionButtons))
 				return m, nil
 			}
 		case "enter":
 			if m.hasOptions() {
-				return m.submitChoice(m.optionIdx + 1)
+				return m.activateFocused()
 			}
 		case "ctrl+d", "ctrl+s":
 			if m.screen != nil {
@@ -145,23 +150,142 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.hasOptions() {
 			if n, err := strconv.Atoi(msg.String()); err == nil && n >= 1 && n <= len(m.screen.Question.Options) {
-				return m.submitChoice(n)
-			}
-			actions := map[string]engine.AnswerAction{
-				"c": engine.AnswerClarify, "e": engine.AnswerExplain,
-				"s": engine.AnswerSkip, "o": engine.AnswerObject, "a": engine.AnswerAbort,
-			}
-			if action, ok := actions[msg.String()]; ok {
-				return m.publish(engine.Answer{QID: m.screen.Question.QID, Action: action})
+				m.choice, m.optionIdx = n, n-1
+				m.status, m.errText = fmt.Sprintf("%d번을 선택했습니다. '답변 제출'을 눌러 확정하세요.", n), ""
+				return m, nil
 			}
 			// Choice screens are deliberately modal: letter keys navigate and
 			// cannot accidentally leave invisible text in the textarea.
 			return m, nil
 		}
+	case tea.MouseMsg:
+		if m.screen == nil {
+			return m, nil
+		}
+		mouse := tea.MouseEvent(msg)
+		if m.hasOptions() {
+			total := len(m.screen.Question.Options) + len(actionButtons)
+			switch mouse.Button {
+			case tea.MouseButtonWheelUp:
+				m.optionIdx = (m.optionIdx - 1 + total) % total
+				return m, nil
+			case tea.MouseButtonWheelDown:
+				m.optionIdx = (m.optionIdx + 1) % total
+				return m, nil
+			case tea.MouseButtonLeft:
+				if mouse.Action == tea.MouseActionPress {
+					if choice, ok := m.choiceAtRow(mouse.Y); ok {
+						m.optionIdx = choice
+						m.choice = choice + 1
+						m.status, m.errText = fmt.Sprintf("%d번을 선택했습니다. '답변 제출'을 눌러 확정하세요.", m.choice), ""
+						return m, nil
+					}
+					if button, ok := m.buttonAtRow(mouse.Y); ok {
+						m.optionIdx = len(m.screen.Question.Options) + button
+						return m.activateButton(button)
+					}
+				}
+			}
+		} else if mouse.Button == tea.MouseButtonLeft && mouse.Action == tea.MouseActionPress {
+			if confidence, ok := m.confidenceAtRow(mouse.Y); ok {
+				m.confIdx = confidence
+				return m, nil
+			}
+			if button, ok := m.buttonAtRow(mouse.Y); ok {
+				return m.activateButton(button)
+			}
+		}
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+// choiceAtRow translates Bubble Tea's zero-based mouse row to the option
+// rendered on that row. Computing it from the rendered prefix keeps hit
+// targets correct when the question wraps or a notice is present.
+func (m model) choiceAtRow(y int) (int, bool) {
+	start := lipgloss.Height(m.questionPrefix())
+	i := y - start
+	return i, i >= 0 && i < len(m.screen.Question.Options)
+}
+
+func (m model) confidenceAtRow(y int) (int, bool) {
+	start := lipgloss.Height(m.questionPrefix()) + lipgloss.Height(m.input.View())
+	i := y - start
+	return i, i >= 0 && i < len(confidences)
+}
+
+type actionButton struct {
+	label  string
+	action engine.AnswerAction
+}
+
+var actionButtons = []actionButton{
+	{label: "답변 제출"},
+	{label: "질문 명확화", action: engine.AnswerClarify},
+	{label: "설명 요청", action: engine.AnswerExplain},
+	{label: "건너뛰기", action: engine.AnswerSkip},
+	{label: "이의 제기", action: engine.AnswerObject},
+	{label: "세션 중단", action: engine.AnswerAbort},
+}
+
+func (m model) buttonStartRow() int {
+	start := lipgloss.Height(m.questionPrefix())
+	if m.hasOptions() {
+		return start + len(m.screen.Question.Options) + 1
+	}
+	return start + lipgloss.Height(m.input.View()) + len(confidences) + 1
+}
+
+func (m model) buttonAtRow(y int) (int, bool) {
+	i := y - m.buttonStartRow()
+	return i, i >= 0 && i < len(actionButtons)
+}
+
+func (m model) activateFocused() (tea.Model, tea.Cmd) {
+	if m.optionIdx < len(m.screen.Question.Options) {
+		m.choice = m.optionIdx + 1
+		m.status, m.errText = fmt.Sprintf("%d번을 선택했습니다. '답변 제출'을 눌러 확정하세요.", m.choice), ""
+		return m, nil
+	}
+	return m.activateButton(m.optionIdx - len(m.screen.Question.Options))
+}
+
+func (m model) activateButton(i int) (tea.Model, tea.Cmd) {
+	if i == 0 {
+		if m.hasOptions() {
+			if m.choice == 0 {
+				m.errText = "먼저 선택지를 고르세요."
+				return m, nil
+			}
+			return m.submitChoice(m.choice)
+		}
+		return m.submit()
+	}
+	return m.publish(engine.Answer{QID: m.screen.Question.QID, Action: actionButtons[i].action})
+}
+
+func (m model) questionPrefix() string {
+	if m.screen == nil || m.screen.Question == nil {
+		return ""
+	}
+	q := m.screen.Question
+	head := "squiz"
+	if m.screen.ConceptName != "" {
+		head = m.screen.ConceptName
+		if m.screen.Stage != "" {
+			head += " · " + stageLabel(m.screen.Stage)
+		}
+	} else if q.Kind != "" {
+		head += " · " + string(q.Kind)
+	}
+	counts := fmt.Sprintf("  판정 %d · 화면 %d", m.screen.JudgedCount, m.screen.BurdenCount)
+	prefix := headerStyle.Render(head) + helpStyle.Render(counts) + "\n"
+	if m.screen.Notice != "" {
+		prefix += noticeStyle.Render("· "+m.screen.Notice) + "\n"
+	}
+	return prefix + questionStyle.Render(q.Text) + "\n"
 }
 
 func (m model) hasOptions() bool {
@@ -248,38 +372,37 @@ func (m model) View() string {
 	}
 	q := m.screen.Question
 
-	// A7: concept · stage always visible in the header
-	head := "squiz"
-	if m.screen.ConceptName != "" {
-		head = m.screen.ConceptName
-		if m.screen.Stage != "" {
-			head += " · " + stageLabel(m.screen.Stage)
-		}
-	} else if q.Kind != "" {
-		head += " · " + string(q.Kind)
-	}
-	counts := fmt.Sprintf("  판정 %d · 화면 %d", m.screen.JudgedCount, m.screen.BurdenCount)
-	b.WriteString(headerStyle.Render(head) + helpStyle.Render(counts) + "\n")
-
-	if m.screen.Notice != "" {
-		b.WriteString(noticeStyle.Render("· "+m.screen.Notice) + "\n")
-	}
-	b.WriteString(questionStyle.Render(q.Text) + "\n")
+	// A7: concept · stage always visible in the header.
+	b.WriteString(m.questionPrefix())
 	if len(q.Options) > 0 {
 		for i, opt := range q.Options {
-			line := fmt.Sprintf("  %d) %s", i+1, opt)
+			line := fmt.Sprintf("○ %d  %s", i+1, opt)
+			if i+1 == m.choice {
+				line = selectedStyle.Render(fmt.Sprintf("● %d  %s", i+1, opt))
+			}
 			if i == m.optionIdx {
-				line = selectedStyle.Render("› " + line[2:])
+				line = selectedStyle.Render("› " + line)
 			}
 			b.WriteString(optionStyle.Render(line) + "\n")
 		}
-		b.WriteString("\n" + helpStyle.Render("↑/↓ 또는 j/k로 이동 · Enter 선택 · 숫자 즉시 선택") + "\n")
+		b.WriteString("\n")
 	} else {
 		b.WriteString(m.input.View() + "\n")
+		for i, confidence := range confidences {
+			mark := "○"
+			if i == m.confIdx {
+				mark = "●"
+			}
+			b.WriteString(optionStyle.Render(fmt.Sprintf("%s 확신도: %s", mark, confLabels[confidence])) + "\n")
+		}
+		b.WriteString("\n")
 	}
-	if len(q.Options) == 0 {
-		b.WriteString("확신도: " + confStyle.Render(confLabels[confidences[m.confIdx]]) +
-			helpStyle.Render("  (Tab으로 변경 — '모르겠음'도 정상 경로입니다)") + "\n")
+	for i, button := range actionButtons {
+		line := "[ " + button.label + " ]"
+		if m.hasOptions() && m.optionIdx == len(q.Options)+i {
+			line = selectedStyle.Render("› " + line)
+		}
+		b.WriteString(optionStyle.Render(line) + "\n")
 	}
 	if m.status != "" {
 		b.WriteString(noticeStyle.Render(m.status) + "\n")
@@ -287,13 +410,7 @@ func (m model) View() string {
 	if m.errText != "" {
 		b.WriteString(errStyle.Render(m.errText) + "\n")
 	}
-	if len(q.Options) == 0 {
-		b.WriteString(helpStyle.Render(
-			"Ctrl+D 제출 · /clarify 질문이 이해 안 됨 · /explain 설명 요청 · /skip 건너뛰기 · /object 이의 · /abort 중단"))
-	} else {
-		b.WriteString(helpStyle.Render(
-			"c 질문 명확화 · e 설명 · s 건너뛰기 · o 이의 · a 세션 중단 · Ctrl+C TUI 종료"))
-	}
+	b.WriteString(helpStyle.Render("클릭 또는 ↑/↓·j/k로 이동 · Enter로 선택/버튼 실행 · Ctrl+C TUI 종료"))
 	return b.String()
 }
 
@@ -317,7 +434,7 @@ func Run(queueDir string) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	p := tea.NewProgram(newModel(x), tea.WithAltScreen())
+	p := tea.NewProgram(newModel(x), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		return 1, err
 	}
