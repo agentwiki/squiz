@@ -34,7 +34,29 @@ jobs:
       - name: Plugin manifests are valid JSON
         run: |
           python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+          python3 -m json.tool .agents/plugins/marketplace.json > /dev/null
           python3 -m json.tool plugins/squiz/.claude-plugin/plugin.json > /dev/null
+          python3 -m json.tool plugins/squiz/.codex-plugin/plugin.json > /dev/null
+      - name: Codex manifests have required fields
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          plugin = json.loads(Path("plugins/squiz/.codex-plugin/plugin.json").read_text())
+          marketplace = json.loads(Path(".agents/plugins/marketplace.json").read_text())
+          entry = marketplace["plugins"][0]
+
+          assert plugin["name"] == "squiz"
+          assert plugin["skills"] == "./skills/"
+          assert entry["name"] == plugin["name"]
+          assert entry["source"] == {"source": "local", "path": "./plugins/squiz"}
+          assert entry["policy"]["installation"] in {
+              "NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"
+          }
+          assert entry["policy"]["authentication"] in {"ON_INSTALL", "ON_USE"}
+          assert entry["category"]
+          PY
       - name: Install script syntax + lint
         run: |
           sh -n plugins/squiz/scripts/install.sh
