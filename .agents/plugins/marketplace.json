@@ -1,0 +1,20 @@
+{
+  "name": "squiz",
+  "interface": {
+    "displayName": "squiz"
+  },
+  "plugins": [
+    {
+      "name": "squiz",
+      "source": {
+        "source": "local",
+        "path": "./plugins/squiz"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

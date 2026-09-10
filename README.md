@@ -1,12 +1,23 @@
 # squiz
 
-소크라테스식 이해 점검 도구 — **Claude Code 스킬 + CLI(상태 기계) + TUI**.
+소크라테스식 이해 점검 도구 — **Codex/Claude Code 스킬 + CLI(상태 기계) + TUI**.
 
 사용자가 어떤 대상(AI가 구현한 것, 일반 개념, 사람이 작성한 코드)을 정답 맞추기가 아니라 **문답으로 스스로 이해에 도달**하게 만드는 형성평가형 튜터입니다. 규칙은 CLI가 강제하고, AI는 질문을 등록한 뒤 대기하며, 사용자는 별도 터미널의 TUI에서 답합니다. 진리의 원천은 AI가 아니라 실행 결과(또는 외부 근거)이며, **도움받아 답한 것과 도움 없이 보여준 것은 구조적으로 구분됩니다.**
 
 ## 설치
 
-### Claude Code 플러그인 (권장)
+### Codex 플러그인 (권장)
+
+이 저장소는 Codex 호환 플러그인 마켓플레이스입니다. Codex에서:
+
+```bash
+codex plugin marketplace add agentwiki/squiz
+codex plugin add squiz@squiz
+```
+
+이후 새 스레드에서 "squiz로 이해 점검해줘"처럼 요청하면(또는 스킬이 자동 발동하면) 세션이 바로 시작됩니다. **`squiz` 바이너리가 없으면 GitHub 릴리스에서 플랫폼에 맞는 바이너리를 자동으로 설치**하며(`~/.local/bin`), 사용자는 안내에 따라 별도 터미널에서 `squiz ui`를 열어 답하면 됩니다.
+
+### Claude Code 플러그인
 
 이 저장소는 Claude Code 플러그인 마켓플레이스를 겸합니다. Claude Code 안에서:
 
@@ -15,7 +26,7 @@
 /plugin install squiz@squiz
 ```
 
-이후 "squiz로 이해 점검해줘"처럼 요청하면(또는 스킬이 자동 발동하면) 세션이 바로 시작됩니다. **`squiz` 바이너리가 없으면 GitHub 릴리스에서 플랫폼에 맞는 바이너리를 자동으로 설치**하며(`~/.local/bin`), 사용자는 안내에 따라 별도 터미널에서 `squiz ui`를 열어 답하면 됩니다.
+Codex와 같은 스킬 및 설치 스크립트를 사용합니다.
 
 ### 바이너리 직접 설치
 
@@ -39,7 +50,7 @@ curl -fsSL https://raw.githubusercontent.com/agentwiki/squiz/main/plugins/squiz/
 squiz ui
 ```
 
-**터미널 2 (AI / Claude Code)** — 세션 진행. Claude Code에서는 `.claude/skills/squiz/SKILL.md` 스킬이 전체 절차를 안내합니다. 수동 개요:
+**터미널 2 (AI / Codex 또는 Claude Code)** — 세션 진행. 플러그인의 `skills/squiz/SKILL.md`가 전체 절차를 안내합니다. 수동 개요:
 
 ```bash
 squiz init --source ai            # ai | concept | code [--role author|reviewer]
@@ -85,7 +96,8 @@ squiz status                      # 허용된 다음 동작(allowed) 확인
 - [`squiz-core.md`](squiz-core.md) — 불변조건 I1~I8 · waiter exit 코드 · 저장 구조 · 구현 결정
 - [`phase0a-decisions.md`](phase0a-decisions.md) — Phase 0A 결정 기록 (A1~A7, 전부 확정)
 - [`.claude/skills/squiz/SKILL.md`](.claude/skills/squiz/SKILL.md) — Claude Code 스킬 (튜터 프로토콜, 저장소 로컬용)
-- [`plugins/squiz/`](plugins/squiz/) — Claude Code 플러그인 (스킬 + 바이너리 자동 설치). 프로토콜 본문은 위 스킬과 동일하며 CI가 동기화를 검사
+- [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) — Codex 마켓플레이스 카탈로그
+- [`plugins/squiz/`](plugins/squiz/) — Codex/Claude Code 플러그인 (공유 스킬 + 바이너리 자동 설치). 프로토콜 본문은 위 스킬과 동일하며 CI가 동기화를 검사
 
 ## 개발
 
