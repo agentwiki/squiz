@@ -103,7 +103,7 @@ squiz status                      # 허용된 다음 동작(allowed) 확인
 
 ```bash
 go test ./internal/...   # 전이표 기반 생성형 테스트 + 불변조건 테스트 + 재생 결정성
-go test ./e2e/ -v        # E2E 사용자 시나리오: 모의 AI 튜터 + 모의 사용자가 실제 바이너리를 구동
+go test -count=1 ./e2e/ -v # E2E 사용자 시나리오 + 마크다운 리포트 생성(테스트 캐시 비활성화)
 go build ./cmd/squiz
 ```
 

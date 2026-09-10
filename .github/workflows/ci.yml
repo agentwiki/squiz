@@ -24,7 +24,10 @@ jobs:
       - name: Unit tests (race)
         run: go test -race ./internal/...
       - name: E2E user scenarios
-        run: go test ./e2e/ -v
+        run: |
+          # The report is a TestMain side effect, so cached test results cannot produce it.
+          go test -count=1 ./e2e/ -v
+          test -s "$SQUIZ_E2E_REPORT"
         env:
           SQUIZ_E2E_REPORT: ${{ github.workspace }}/e2e-report.md
       - name: goreleaser config check
@@ -83,7 +86,7 @@ jobs:
               body = '## 🧪 squiz E2E 사용자 시나리오 검증\n\n⚠️ 리포트 파일이 생성되지 않았습니다 — E2E 단계가 시작 전에 실패했을 수 있습니다. 워크플로 로그를 확인하세요.';
             }
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            body = `${marker}\n${body}\n---\n_커밋 ${context.sha.slice(0, 7)} · [워크플로 실행](${runUrl}) · \`go test ./e2e/\`로 로컬 재현 가능_\n`;
+            body = `${marker}\n${body}\n---\n_커밋 ${context.sha.slice(0, 7)} · [워크플로 실행](${runUrl}) · \`go test -count=1 ./e2e/\`로 로컬 재현 가능_\n`;
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
