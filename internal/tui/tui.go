@@ -26,6 +26,7 @@ var (
 	optionStyle   = lipgloss.NewStyle().PaddingLeft(4)
 	helpStyle     = lipgloss.NewStyle().Faint(true)
 	confStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
+	selectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	waitStyle     = lipgloss.NewStyle().Faint(true).Padding(2, 2)
 	errStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 )
@@ -44,6 +45,7 @@ type model struct {
 	answeredTicks int    // ticks the answered qid kept reappearing
 	input         textarea.Model
 	confIdx       int
+	optionIdx     int
 	status        string
 	errText       string
 	width         int
@@ -103,6 +105,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.answered = ""
 				m.answeredTicks = 0
 				m.input.Reset()
+				m.optionIdx = 0
 				m.errText = ""
 				if reshow {
 					m.status = "응답이 접수되지 않아 같은 질문을 다시 표시합니다."
@@ -121,15 +124,54 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confIdx = (m.confIdx + 1) % len(confidences)
 				return m, nil
 			}
+		case "up", "k":
+			if m.hasOptions() {
+				m.optionIdx = (m.optionIdx - 1 + len(m.screen.Question.Options)) % len(m.screen.Question.Options)
+				return m, nil
+			}
+		case "down", "j":
+			if m.hasOptions() {
+				m.optionIdx = (m.optionIdx + 1) % len(m.screen.Question.Options)
+				return m, nil
+			}
+		case "enter":
+			if m.hasOptions() {
+				return m.submitChoice(m.optionIdx + 1)
+			}
 		case "ctrl+d", "ctrl+s":
 			if m.screen != nil {
 				return m.submit()
 			}
 		}
+		if m.hasOptions() {
+			if n, err := strconv.Atoi(msg.String()); err == nil && n >= 1 && n <= len(m.screen.Question.Options) {
+				return m.submitChoice(n)
+			}
+			actions := map[string]engine.AnswerAction{
+				"c": engine.AnswerClarify, "e": engine.AnswerExplain,
+				"s": engine.AnswerSkip, "o": engine.AnswerObject, "a": engine.AnswerAbort,
+			}
+			if action, ok := actions[msg.String()]; ok {
+				return m.publish(engine.Answer{QID: m.screen.Question.QID, Action: action})
+			}
+			// Choice screens are deliberately modal: letter keys navigate and
+			// cannot accidentally leave invisible text in the textarea.
+			return m, nil
+		}
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+func (m model) hasOptions() bool {
+	return m.screen != nil && m.screen.Question != nil && len(m.screen.Question.Options) > 0
+}
+
+func (m model) submitChoice(choice int) (tea.Model, tea.Cmd) {
+	q := m.screen.Question
+	a := engine.Answer{QID: q.QID, Action: engine.AnswerChoice, Choice: choice}
+	return m.publish(a)
 }
 
 func (m model) submit() (tea.Model, tea.Cmd) {
@@ -175,11 +217,15 @@ func (m model) submit() (tea.Model, tea.Cmd) {
 		a.Text = raw
 		a.Confidence = confidences[m.confIdx]
 	}
+	return m.publish(a)
+}
+
+func (m model) publish(a engine.Answer) (tea.Model, tea.Cmd) {
 	if err := m.x.PublishResponse(a); err != nil {
 		m.errText = err.Error()
 		return m, nil
 	}
-	m.answered = q.QID
+	m.answered = a.QID
 	m.screen = nil
 	m.input.Reset()
 	m.status = "답변을 보냈습니다. 다음 질문을 기다리는 중…"
@@ -221,11 +267,16 @@ func (m model) View() string {
 	b.WriteString(questionStyle.Render(q.Text) + "\n")
 	if len(q.Options) > 0 {
 		for i, opt := range q.Options {
-			b.WriteString(optionStyle.Render(fmt.Sprintf("%d) %s", i+1, opt)) + "\n")
+			line := fmt.Sprintf("  %d) %s", i+1, opt)
+			if i == m.optionIdx {
+				line = selectedStyle.Render("› " + line[2:])
+			}
+			b.WriteString(optionStyle.Render(line) + "\n")
 		}
-		b.WriteString("\n")
+		b.WriteString("\n" + helpStyle.Render("↑/↓ 또는 j/k로 이동 · Enter 선택 · 숫자 즉시 선택") + "\n")
+	} else {
+		b.WriteString(m.input.View() + "\n")
 	}
-	b.WriteString(m.input.View() + "\n")
 	if len(q.Options) == 0 {
 		b.WriteString("확신도: " + confStyle.Render(confLabels[confidences[m.confIdx]]) +
 			helpStyle.Render("  (Tab으로 변경 — '모르겠음'도 정상 경로입니다)") + "\n")
@@ -236,8 +287,13 @@ func (m model) View() string {
 	if m.errText != "" {
 		b.WriteString(errStyle.Render(m.errText) + "\n")
 	}
-	b.WriteString(helpStyle.Render(
-		"Ctrl+D 제출 · /clarify 질문이 이해 안 됨 · /explain 설명 요청 · /skip 건너뛰기 · /object 이의 · /abort 중단"))
+	if len(q.Options) == 0 {
+		b.WriteString(helpStyle.Render(
+			"Ctrl+D 제출 · /clarify 질문이 이해 안 됨 · /explain 설명 요청 · /skip 건너뛰기 · /object 이의 · /abort 중단"))
+	} else {
+		b.WriteString(helpStyle.Render(
+			"c 질문 명확화 · e 설명 · s 건너뛰기 · o 이의 · a 세션 중단 · Ctrl+C TUI 종료"))
+	}
 	return b.String()
 }
 
