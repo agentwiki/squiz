@@ -8,7 +8,8 @@ description: 소크라테스식 이해 점검 세션을 진행한다. 사용자�
 세션을 시작하기 전에 `squiz` 바이너리를 확보한다:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/install.sh"
+PLUGIN_ROOT="${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
+"${PLUGIN_ROOT:?Codex/Claude 플러그인 루트를 찾을 수 없습니다}/scripts/install.sh"
 ```
 
 - 이미 PATH에 있거나 설치돼 있으면 그 경로를, 없으면 GitHub 릴리스(https://github.com/agentwiki/squiz/releases)에서 플랫폼에 맞는 바이너리를 내려받아 `~/.local/bin`에 설치하고 그 경로를 **stdout 마지막 줄**에 출력한다.
